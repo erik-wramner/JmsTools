@@ -4,3 +4,4 @@ bin
 .classpath
 .settings
 *.log
+AqJmsCommon/lib/
