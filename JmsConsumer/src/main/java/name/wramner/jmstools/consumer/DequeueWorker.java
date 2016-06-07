@@ -108,6 +108,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
                 try (AutoCloser closer = new AutoCloser(conn = _connFactory.createConnection())) {
                     closer.add(session = conn.createSession(true, Session.SESSION_TRANSACTED));
                     closer.add(consumer = session.createConsumer(session.createQueue(_queueName)));
+                    conn.start();
 
                     while (_stopController.keepRunning()) {
                         Message msg = _receiveTimeoutMillis > 0 ? consumer.receive(_receiveTimeoutMillis) : consumer
