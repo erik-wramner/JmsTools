@@ -36,6 +36,8 @@
     <module>AqJmsCommon</module>
     <module>AqJmsConsumer</module>
     <module>AqJmsProducer</module>
+    <module>AmqJmsConsumer</module>
+    <module>AmqJmsProducer</module>
   </modules>
   <description>JMS tools for tests and benchmarks.</description>
   <build>
