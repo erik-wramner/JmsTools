@@ -18,9 +18,9 @@ as possible. Or at least the ones I need.
 ## Main features
 
 The current version (still in 1.0-SNAPSHOT) includes a consumer and a producer
-for AQ JMS. They can run on any number of machines and as multiple processes
-in order to scale if the configurable number of threads is not enough (but
-usually it is - it is cheap to enqueue/dequeue without processing).
+for AQ JMS and ActiveMQ. They can run on any number of machines and as multiple
+processes in order to scale if the configurable number of threads is not enough
+(but usually it is - it is cheap to enqueue/dequeue without processing).
 Some of the options:
 
 * Unique message identities that make it possible to find lost messages, duplicate
@@ -29,6 +29,7 @@ Some of the options:
 * Checksums in order to check for corrupted messages.
 * Prepared messages from a directory or random messages with a minimum and maximum size.
 * Outliers (large messages with a certain probability).
+* Delayed/scheduled messages (where supported).
 * Text and binary messages.
 * Duration-based tests.
 * Count-based tests.
@@ -41,9 +42,6 @@ Some of the options:
 Some features are still missing. The short-term plan includes:
 
 * XA transactions (two-phase commits)
-* Scheduled/delayed messages
-* ActiveMQ (and hence AMQ) support
-* WMQ support
 
 Feel free to submit pull requests, bug reports or to ask for other improvements.
 
