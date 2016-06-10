@@ -53,10 +53,12 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
     private final boolean _idAndChecksumEnabled;
     private final boolean _rollbacksEnabled;
     private final double _rollbackProbability;
+    private final double _delayedDeliveryProbability;
+    private final int _delayedDeliverySeconds;
     private final String _queueName;
     private final File _logFile;
+    private final DelayedDeliveryAdapter _delayedDeliveryAdapter;
 
-    // TODO: message delay
     public EnqueueWorker(ConnectionFactory connFactory, Counter counter, StopController stopController,
                     MessageProvider messageProvider, File logFile, T config) {
         _connFactory = connFactory;
@@ -64,12 +66,24 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
         _stopController = stopController;
         _messageProvider = messageProvider;
         _logFile = logFile;
+        _queueName = config.getQueueName();
         _messagesPerBatch = config.getMessagesPerBatch();
         _sleepTimeMillisAfterBatch = config.getSleepTimeMillisAfterBatch();
         _idAndChecksumEnabled = config.isIdAndChecksumEnabled();
-        _rollbacksEnabled = config.getRollbackPercentage() != null;
-        _rollbackProbability = _rollbacksEnabled ? config.getRollbackPercentage().doubleValue() / 100.0 : 0.0;
-        _queueName = config.getQueueName();
+        if (_rollbacksEnabled = config.getRollbackPercentage() != null) {
+            _rollbackProbability = config.getRollbackPercentage().doubleValue() / 100.0;
+        } else {
+            _rollbackProbability = 0.0;
+        }
+        if (config.getDelayedDeliveryPercentage() != null) {
+            _delayedDeliveryAdapter = config.createDelayedDeliveryAdapter();
+            _delayedDeliveryProbability = config.getDelayedDeliveryPercentage().doubleValue() / 100.0;
+            _delayedDeliverySeconds = config.getDelayedDeliverySeconds();
+        } else {
+            _delayedDeliveryAdapter = null;
+            _delayedDeliveryProbability = 0.0;
+            _delayedDeliverySeconds = 0;
+        }
     }
 
     @Override
@@ -101,6 +115,10 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
                                 messageIds.add(id);
                             }
 
+                            if (shouldDelayDelivery()) {
+                                _delayedDeliveryAdapter.setDelayProperty(msg, _delayedDeliverySeconds);
+                            }
+
                             producer.send(msg);
                         }
 
@@ -123,6 +141,13 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
                     }
                 } catch (JMSException e) {
                     _logger.error("Enqueue worker failed!", e);
+                    if (session != null) {
+                        try {
+                            session.rollback();
+                        } catch (JMSException jmsException) {
+                            // Ignore
+                        }
+                    }
                     if (_stopController.keepRunning()) {
                         Thread.sleep(JMS_EXCEPTION_RECOVERY_TIME_MS);
                     }
@@ -172,4 +197,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
         return _rollbacksEnabled && _random.nextDouble() < _rollbackProbability;
     }
 
+    private boolean shouldDelayDelivery() {
+        return _delayedDeliveryAdapter != null && _random.nextDouble() < _delayedDeliveryProbability;
+    }
 }

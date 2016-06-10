@@ -19,6 +19,7 @@ import java.util.Properties;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
+import javax.jms.Message;
 
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.producer.AqJmsProducer.AqProducerConfiguration;
@@ -91,6 +92,17 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
             } else {
                 return counter;
             }
+        }
+
+        @Override
+        public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
+            return new DelayedDeliveryAdapter() {
+
+                @Override
+                public void setDelayProperty(Message msg, int seconds) throws JMSException {
+                    msg.setIntProperty("JMS_OracleDelay", seconds);
+                }
+            };
         }
 
         public ConnectionFactory createConnectionFactory() throws JMSException {

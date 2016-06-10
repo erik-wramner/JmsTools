@@ -86,8 +86,18 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
                     + "with k, M or G suffixes.", forbids = { "-dir" })
     protected String _outlierSize = DEFAULT_OUTLIER_SIZE;
 
-    public Double getOutlierPercentage() {
-        return _outlierPercentage;
+    @Option(name = "-delay-pct", aliases = "--delayed-delivery-percentage", usage = "Percentage of delayed (scheduled) messages")
+    protected Double _delayedDeliveryPercentage;
+
+    @Option(name = "-delay-sec", aliases = "--delayed-delivery-seconds", usage = "The number of seconds to delay scheduled messages")
+    protected int _delayedDeliverySeconds;
+
+    public Double getDelayedDeliveryPercentage() {
+        return _delayedDeliveryPercentage;
+    }
+
+    public int getDelayedDeliverySeconds() {
+        return _delayedDeliverySeconds;
     }
 
     public Integer getOutlierSizeInBytes() {
@@ -157,5 +167,9 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
                             _outlierPercentage, getOutlierSizeInBytes()) : new BytesMessageProvider(DEFAULT_MIN_SIZE,
                             DEFAULT_MAX_SIZE, _numberOfMessages, _outlierPercentage, getOutlierSizeInBytes());
         }
+    }
+
+    public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
+        return null;
     }
 }

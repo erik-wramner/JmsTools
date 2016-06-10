@@ -15,8 +15,11 @@
  */
 package name.wramner.jmstools.producer;
 
+import java.util.concurrent.TimeUnit;
+
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
+import javax.jms.Message;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.kohsuke.args4j.Option;
@@ -64,15 +67,24 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
         @Option(name = "-user", aliases = { "--jms-user" }, usage = "ActiveMQ user name if using authentication")
         private String _userName;
 
-        @Option(name = "-pw", aliases = {
-                "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = { "-user" })
+        @Option(name = "-pw", aliases = { "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = { "-user" })
         private String _password;
+
+        @Override
+        public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
+            return new DelayedDeliveryAdapter() {
+
+                @Override
+                public void setDelayProperty(Message msg, int seconds) throws JMSException {
+                    msg.setLongProperty("AMQ_SCHEDULED_DELAY", TimeUnit.MILLISECONDS.convert(seconds, TimeUnit.SECONDS));
+                }
+            };
+        }
 
         public ConnectionFactory createConnectionFactory() throws JMSException {
             if (_userName != null && _password != null) {
                 return new ActiveMQConnectionFactory(_userName, _password, _brokerUrl);
-            }
-            else {
+            } else {
                 return new ActiveMQConnectionFactory(_brokerUrl);
             }
         }
