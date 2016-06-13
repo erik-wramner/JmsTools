@@ -17,7 +17,7 @@ package name.wramner.jmstools;
 
 import java.util.List;
 
-import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -40,7 +40,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         T config = createConfiguration();
         if (parseCommandLine(args, config)) {
             try {
-                List<Thread> threads = createThreadsWithWorkers(config, config.createConnectionFactory());
+                List<Thread> threads = createThreadsWithWorkers(config);
                 startThreads(threads);
                 waitForThreadsToComplete(threads);
             } catch (Exception e) {
@@ -62,10 +62,10 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
      * Create threads with workers.
      * 
      * @param config The initialized configuration.
-     * @param connFactory The connection factory (created once by configuration).
      * @return list with threads, not started.
+     * @throws JMSException on JMS errors.
      */
-    protected abstract List<Thread> createThreadsWithWorkers(T config, ConnectionFactory connFactory);
+    protected abstract List<Thread> createThreadsWithWorkers(T config) throws JMSException;
 
     /**
      * Parse the command line into the specified configuration.

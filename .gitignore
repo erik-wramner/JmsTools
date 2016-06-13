@@ -4,4 +4,5 @@ bin
 .classpath
 .settings
 *.log
+tmlog.lck
 AqJmsCommon/lib/

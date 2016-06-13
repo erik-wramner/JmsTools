@@ -48,6 +48,15 @@ public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
                     + " when no message is returned")
     private int _pollingDelayMillis;
 
+    @Option(name = "-commitempty", aliases = "--commit-on-receive-timeout", usage = "Commit when a receive operation"
+                    + " has timed out without returning any data, may be necessary in order to keep"
+                    + " transaction timeouts in check")
+    private boolean _shouldCommitOnReceiveTimeout = true;
+
+    public boolean shouldCommitOnReceiveTimeout() {
+        return _shouldCommitOnReceiveTimeout;
+    }
+
     public boolean shouldVerifyChecksum() {
         return _verifyChecksum;
     }

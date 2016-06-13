@@ -15,15 +15,14 @@
  */
 package name.wramner.jmstools.producer;
 
-import java.util.Properties;
-
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
+import javax.jms.XAConnectionFactory;
 
+import name.wramner.jmstools.aq.AqJmsUtils;
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.producer.AqJmsProducer.AqProducerConfiguration;
-import oracle.jms.AQjmsFactory;
 
 import org.kohsuke.args4j.Option;
 
@@ -106,10 +105,11 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
         }
 
         public ConnectionFactory createConnectionFactory() throws JMSException {
-            Properties props = new Properties();
-            props.put("user", _aqJdbcUser);
-            props.put("password", _aqJdbcPassword);
-            return AQjmsFactory.getConnectionFactory(_aqJdbcUrl, props);
+            return AqJmsUtils.createConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
+        }
+
+        public XAConnectionFactory createXAConnectionFactory() throws JMSException {
+            return AqJmsUtils.createXAConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
         }
     }
 }

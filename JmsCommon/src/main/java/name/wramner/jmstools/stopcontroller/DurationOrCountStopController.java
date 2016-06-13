@@ -19,7 +19,12 @@ import java.util.concurrent.TimeUnit;
 
 import name.wramner.jmstools.counter.Counter;
 
-public class DurationOrCountStopController implements StopController {
+/**
+ * Stop controller that runs until a certain count has been reached or until a certain time has passed.
+ * 
+ * @author Erik Wramner
+ */
+public class DurationOrCountStopController extends BaseStopController {
     private final long _endTimeMillis;
     private final Counter _counter;
     private final int _count;
@@ -31,7 +36,7 @@ public class DurationOrCountStopController implements StopController {
     }
 
     @Override
-    public boolean keepRunning() {
+    public boolean shouldKeepRunning() {
         return _counter.getCount() < _count && System.currentTimeMillis() < _endTimeMillis;
     }
 }

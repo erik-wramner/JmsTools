@@ -19,12 +19,17 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 
 import name.wramner.jmstools.JmsClient;
 import name.wramner.jmstools.StatisticsLogger;
 import name.wramner.jmstools.counter.Counter;
+import name.wramner.jmstools.rm.JmsResourceManagerFactory;
+import name.wramner.jmstools.rm.ResourceManagerFactory;
+import name.wramner.jmstools.rm.XAJmsResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
+
+import com.atomikos.icatch.jta.UserTransactionManager;
 
 /**
  * A JMS consumer creates a configurable number of threads and dequeues messages from a given queue. It can be used for
@@ -38,11 +43,15 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
     private static final String LOG_FILE_BASE_NAME = "dequeued_messages_";
 
     @Override
-    protected List<Thread> createThreadsWithWorkers(T config, ConnectionFactory connFactory) {
+    protected List<Thread> createThreadsWithWorkers(T config) throws JMSException {
         Counter messageCounter = config.createMessageCounter();
         Counter receiveTimeoutCounter = config.createReceiveTimeoutCounter();
         StopController stopController = config.createStopController(messageCounter, receiveTimeoutCounter);
-        List<Thread> threads = createThreads(connFactory, messageCounter, receiveTimeoutCounter, stopController, config);
+        ResourceManagerFactory resourceManagerFactory = config.useXa() ? new XAJmsResourceManagerFactory(
+                        new UserTransactionManager(), config.createXAConnectionFactory(), config.getQueueName())
+                        : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getQueueName());
+        List<Thread> threads = createThreads(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
+                        stopController, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, messageCounter, receiveTimeoutCounter),
                             "StatisticsLogger"));
@@ -50,11 +59,11 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
         return threads;
     }
 
-    private List<Thread> createThreads(ConnectionFactory connFactory, Counter messageCounter,
+    private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
                     Counter receiveTimeoutCounter, StopController stopController, T config) {
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
-            threads.add(new Thread(new DequeueWorker<T>(connFactory, messageCounter, receiveTimeoutCounter,
+            threads.add(new Thread(new DequeueWorker<T>(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
                             stopController, config.getLogDirectory() != null ? new File(config.getLogDirectory(),
                                             LOG_FILE_BASE_NAME + (i + 1) + ".log") : null, config), "DequeueWorker-"
                             + (i + 1)));

@@ -19,7 +19,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import name.wramner.jmstools.counter.Counter;
 
-public class ParentAndThenCountStopController implements StopController {
+/**
+ * Stop controller that first delegates to another stop controller and then waits for a count. Though it can be used in
+ * other scenarios it was designed for first running a test and then draining the queue before stopping the consumers.
+ * 
+ * @author Erik Wramner
+ */
+public class ParentAndThenCountStopController extends BaseStopController {
     private final StopController _parent;
     private final AtomicReference<StopController> _drainedControllerReference = new AtomicReference<>();
     private final Counter _receiveTimeoutCounter;
@@ -30,7 +36,7 @@ public class ParentAndThenCountStopController implements StopController {
     }
 
     @Override
-    public boolean keepRunning() {
+    public boolean shouldKeepRunning() {
         if (_parent.keepRunning()) {
             return true;
         }

@@ -21,13 +21,18 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 
 import name.wramner.jmstools.JmsClient;
 import name.wramner.jmstools.StatisticsLogger;
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.MessageProvider;
+import name.wramner.jmstools.rm.JmsResourceManagerFactory;
+import name.wramner.jmstools.rm.ResourceManagerFactory;
+import name.wramner.jmstools.rm.XAJmsResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
+
+import com.atomikos.icatch.jta.UserTransactionManager;
 
 /**
  * A JMS producer creates a configurable number of threads and enqueues messages on a given queue. It can be used for
@@ -40,7 +45,7 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
 
     private static final String LOGFILE_BASE_NAME = "enqueued_messages_";
 
-    protected List<Thread> createThreadsWithWorkers(T config, ConnectionFactory connFactory) {
+    protected List<Thread> createThreadsWithWorkers(T config) throws JMSException {
         MessageProvider messageProvider;
         try {
             messageProvider = config.createMessageProvider();
@@ -49,20 +54,24 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
         }
         Counter counter = config.createMessageCounter();
         StopController stopController = config.createStopController(counter);
-        List<Thread> threads = createThreads(connFactory, counter, stopController, messageProvider, config);
+        ResourceManagerFactory resourceManagerFactory = config.useXa() ? new XAJmsResourceManagerFactory(
+                        new UserTransactionManager(), config.createXAConnectionFactory(), config.getQueueName())
+                        : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getQueueName());
+        List<Thread> threads = createThreads(resourceManagerFactory, counter, stopController, messageProvider, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, counter), "StatisticsLogger"));
         }
         return threads;
     }
 
-    protected List<Thread> createThreads(ConnectionFactory connFactory, Counter counter, StopController stopController,
-                    MessageProvider messageProvider, T config) {
+    private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter counter,
+                    StopController stopController, MessageProvider messageProvider, T config) {
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
-            threads.add(new Thread(new EnqueueWorker<T>(connFactory, counter, stopController, messageProvider, config
-                            .getLogDirectory() != null ? new File(config.getLogDirectory(), LOGFILE_BASE_NAME + (i + 1)
-                            + ".log") : null, config), "EnqueueWorker-" + (i + 1)));
+            threads.add(new Thread(new EnqueueWorker<T>(resourceManagerFactory, counter, stopController,
+                            messageProvider, config.getLogDirectory() != null ? new File(config.getLogDirectory(),
+                                            LOGFILE_BASE_NAME + (i + 1) + ".log") : null, config), "EnqueueWorker-"
+                            + (i + 1)));
         }
         return threads;
     }

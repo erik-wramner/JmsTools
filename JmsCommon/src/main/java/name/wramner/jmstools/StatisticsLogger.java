@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
  * @author Erik Wramner
  */
 public class StatisticsLogger implements Runnable {
+    private static final long ONE_MINUTE_IN_MS = 60000L;
     private static final char SEPARATOR = '\t';
     private final Logger _statisticsLogger = LoggerFactory.getLogger("statistics");
     private final Logger _logger = LoggerFactory.getLogger(getClass());
@@ -57,10 +58,9 @@ public class StatisticsLogger implements Runnable {
         _logger.debug("Statistics logger started...");
         try {
             int[] prevCounts = new int[_counters.size()];
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(80);
+            _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
             while (_stopController.keepRunning()) {
-                Thread.sleep(60000L);
-
                 for (int i = 0; i < prevCounts.length; i++) {
                     int count = _counters.get(i).getCount();
                     if (i > 0) {
@@ -70,10 +70,10 @@ public class StatisticsLogger implements Runnable {
                     prevCounts[i] = count;
                 }
                 _statisticsLogger.info(sb.toString());
+
                 sb.setLength(0);
+                _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
             }
-        } catch (InterruptedException e) {
-            _logger.warn("Interrupted, aborting!", e);
         } finally {
             _logger.debug("Statistics logger stopped.");
         }

@@ -15,9 +15,23 @@
  */
 package name.wramner.jmstools.stopcontroller;
 
+/**
+ * Stop controller that runs forever. Presumably the program is killed when the test is done.
+ * 
+ * @author Erik Wramner
+ */
 public class RunForeverStopController implements StopController {
     @Override
     public boolean keepRunning() {
         return true;
+    }
+
+    @Override
+    public void waitForTimeoutOrDone(long timeToWaitMillis) {
+        try {
+            Thread.sleep(timeToWaitMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

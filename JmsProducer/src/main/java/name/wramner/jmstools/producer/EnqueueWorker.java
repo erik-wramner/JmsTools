@@ -25,17 +25,17 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageProducer;
-import javax.jms.Session;
+import javax.transaction.HeuristicMixedException;
+import javax.transaction.HeuristicRollbackException;
+import javax.transaction.RollbackException;
 
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.MessageProvider;
+import name.wramner.jmstools.rm.ResourceManager;
+import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
-import name.wramner.util.AutoCloser;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,6 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
     private static final long JMS_EXCEPTION_RECOVERY_TIME_MS = 10000L;
     private final Logger _logger = LoggerFactory.getLogger(getClass());
     private final Random _random = new Random();
-    private final ConnectionFactory _connFactory;
     private final Counter _counter;
     private final StopController _stopController;
     private final MessageProvider _messageProvider;
@@ -55,18 +54,17 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
     private final double _rollbackProbability;
     private final double _delayedDeliveryProbability;
     private final int _delayedDeliverySeconds;
-    private final String _queueName;
     private final File _logFile;
     private final DelayedDeliveryAdapter _delayedDeliveryAdapter;
+    private final ResourceManagerFactory _resourceManagerFactory;
 
-    public EnqueueWorker(ConnectionFactory connFactory, Counter counter, StopController stopController,
+    public EnqueueWorker(ResourceManagerFactory resourceManagerFactory, Counter counter, StopController stopController,
                     MessageProvider messageProvider, File logFile, T config) {
-        _connFactory = connFactory;
+        _resourceManagerFactory = resourceManagerFactory;
         _counter = counter;
         _stopController = stopController;
         _messageProvider = messageProvider;
         _logFile = logFile;
-        _queueName = config.getQueueName();
         _messagesPerBatch = config.getMessagesPerBatch();
         _sleepTimeMillisAfterBatch = config.getSleepTimeMillisAfterBatch();
         _idAndChecksumEnabled = config.isIdAndChecksumEnabled();
@@ -94,21 +92,17 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
             if (_idAndChecksumEnabled && _logFile != null) {
                 os = new BufferedOutputStream(new FileOutputStream(_logFile));
             }
-            Connection conn = null;
-            Session session = null;
-            MessageProducer producer = null;
-            while (_stopController.keepRunning()) {
-                try (AutoCloser closer = new AutoCloser(conn = _connFactory.createConnection())) {
-                    closer.add(session = conn.createSession(true, Session.SESSION_TRANSACTED));
-                    closer.add(producer = session.createProducer(session.createQueue(_queueName)));
-                    List<String> messageIds = new ArrayList<>(_messagesPerBatch);
+            List<String> messageIds = new ArrayList<>(_messagesPerBatch);
 
+            while (_stopController.keepRunning()) {
+                try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
                     while (_stopController.keepRunning()) {
+                        resourceManager.startTransaction();
                         messageIds.clear();
 
                         for (int i = 0; i < _messagesPerBatch; i++) {
-                            Message msg = _messageProvider.createMessageWithPayloadAndChecksumProperty(session);
-
+                            Message msg = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
+                                            .getSession());
                             if (_idAndChecksumEnabled) {
                                 String id = UUID.randomUUID().toString();
                                 msg.setStringProperty("Unique-Message-Id", id);
@@ -119,16 +113,16 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
                                 _delayedDeliveryAdapter.setDelayProperty(msg, _delayedDeliverySeconds);
                             }
 
-                            producer.send(msg);
+                            resourceManager.getMessageProducer().send(msg);
                         }
 
                         if (shouldRollback()) {
-                            session.rollback();
+                            resourceManager.rollback();
                             if (_idAndChecksumEnabled) {
                                 _logger.info("Rolled back {}", messageIds);
                             }
                         } else {
-                            session.commit();
+                            resourceManager.commit();
                             _counter.incrementCount(_messagesPerBatch);
                             if (os != null) {
                                 logMessageIdsToFile(os, messageIds);
@@ -136,30 +130,33 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
                         }
 
                         if (_sleepTimeMillisAfterBatch > 0) {
-                            Thread.sleep(_sleepTimeMillisAfterBatch);
+                            _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
                         }
                     }
                 } catch (JMSException e) {
-                    _logger.error("Enqueue worker failed!", e);
-                    if (session != null) {
-                        try {
-                            session.rollback();
-                        } catch (JMSException jmsException) {
-                            // Ignore
-                        }
+                    _logger.error("JMS error!", e);
+                    if (!messageIds.isEmpty()) {
+                        _logger.info("Rolled back {}", messageIds);
                     }
-                    if (_stopController.keepRunning()) {
-                        Thread.sleep(JMS_EXCEPTION_RECOVERY_TIME_MS);
+                } catch (RollbackException | HeuristicRollbackException e) {
+                    _logger.error("Failed to commit!", e);
+                    if (!messageIds.isEmpty()) {
+                        _logger.info("Rolled back {}", messageIds);
+                    }
+                } catch (HeuristicMixedException e) {
+                    _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
+                    if (!messageIds.isEmpty()) {
+                        _logger.error("Rolled back OR committed {}", messageIds);
                     }
                 }
+
+                _stopController.waitForTimeoutOrDone(JMS_EXCEPTION_RECOVERY_TIME_MS);
             }
-        } catch (IOException e) {
-            _logger.error("Enqueue worker failed with I/O exception!", e);
-        } catch (InterruptedException e) {
-            _logger.info("Enqueue worker interrupted, aborting!", e);
+        } catch (Exception e) {
+            _logger.error("Enqueue worker failed, aborting!", e);
         } finally {
             if (os != null) {
-                flush(os);
+                flushSafely(os);
                 closeSafely(os);
             }
             _logger.debug("Enqueue worker stopped");
@@ -173,7 +170,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
         }
     }
 
-    private void flush(OutputStream os) {
+    private void flushSafely(OutputStream os) {
         try {
             os.flush();
         } catch (IOException e) {

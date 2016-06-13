@@ -13,26 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package name.wramner.jmstools.stopcontroller;
+package name.wramner.jmstools.rm;
 
-import name.wramner.jmstools.counter.Counter;
+public interface ResourceManagerFactory {
 
-/**
- * Stop controller that runs until a certain count is reached.
- * 
- * @author Erik Wramner
- */
-public class CountStopController extends BaseStopController {
-    private final Counter _counter;
-    private final int _count;
-
-    public CountStopController(int count, Counter counter) {
-        _count = count;
-        _counter = counter;
-    }
-
-    @Override
-    public boolean shouldKeepRunning() {
-        return _counter.getCount() < _count;
-    }
+    ResourceManager createResourceManager();
 }

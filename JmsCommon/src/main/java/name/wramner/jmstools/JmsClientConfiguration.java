@@ -19,6 +19,7 @@ import java.io.File;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
+import javax.jms.XAConnectionFactory;
 
 import name.wramner.jmstools.counter.AtomicCounter;
 import name.wramner.jmstools.counter.Counter;
@@ -47,6 +48,9 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-log", aliases = "--log-directory", usage = "Directory for detailed message logs, enables message logging")
     protected File _logDirectory;
 
+    @Option(name = "-xa", aliases = "--xa-transactions", usage = "Use XA (two-phase) transactions")
+    protected boolean _useXa;
+
     public int getThreads() {
         return _threads;
     }
@@ -71,5 +75,11 @@ public abstract class JmsClientConfiguration {
         return new AtomicCounter();
     }
 
+    public boolean useXa() {
+        return _useXa;
+    }
+
     public abstract ConnectionFactory createConnectionFactory() throws JMSException;
+
+    public abstract XAConnectionFactory createXAConnectionFactory() throws JMSException;
 }

@@ -20,11 +20,13 @@ import java.util.concurrent.TimeUnit;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
-
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.kohsuke.args4j.Option;
+import javax.jms.XAConnectionFactory;
 
 import name.wramner.jmstools.producer.AmqJmsProducer.AmqProducerConfiguration;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.ActiveMQXAConnectionFactory;
+import org.kohsuke.args4j.Option;
 
 /**
  * Command line JMS ActiveMQ message producer intended for benchmarks and other tests.
@@ -86,6 +88,14 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
                 return new ActiveMQConnectionFactory(_userName, _password, _brokerUrl);
             } else {
                 return new ActiveMQConnectionFactory(_brokerUrl);
+            }
+        }
+
+        public XAConnectionFactory createXAConnectionFactory() throws JMSException {
+            if (_userName != null && _password != null) {
+                return new ActiveMQXAConnectionFactory(_userName, _password, _brokerUrl);
+            } else {
+                return new ActiveMQXAConnectionFactory(_brokerUrl);
             }
         }
     }

@@ -17,7 +17,12 @@ package name.wramner.jmstools.stopcontroller;
 
 import java.util.concurrent.TimeUnit;
 
-public class DurationStopController implements StopController {
+/**
+ * Stop controller that runs for a specified time.
+ * 
+ * @author Erik Wramner
+ */
+public class DurationStopController extends BaseStopController {
     private final long _endTimeMillis;
 
     public DurationStopController(int durationMinutes) {
@@ -25,7 +30,7 @@ public class DurationStopController implements StopController {
     }
 
     @Override
-    public boolean keepRunning() {
+    public boolean shouldKeepRunning() {
         return System.currentTimeMillis() < _endTimeMillis;
     }
 }
