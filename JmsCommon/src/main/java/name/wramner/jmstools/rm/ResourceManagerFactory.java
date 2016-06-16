@@ -15,7 +15,19 @@
  */
 package name.wramner.jmstools.rm;
 
+/**
+ * A resource manager factory produces resource managers. Clear as fog. Basically it creates something that ties
+ * together the JMS resources (connection, session, consumer/producer) and the active transaction and knows how to
+ * release them when done.
+ * 
+ * @author Erik Wramner
+ */
 public interface ResourceManagerFactory {
 
+    /**
+     * Create resource manager.
+     * 
+     * @return resource manager.
+     */
     ResourceManager createResourceManager();
 }

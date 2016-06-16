@@ -17,21 +17,41 @@ package name.wramner.jmstools.producer;
 
 import name.wramner.jmstools.counter.Counter;
 
+/**
+ * This is a counter that doubles as flow controller. When the count is incremented it invokes the flow controller. If
+ * it determines that the producer is too fast it sleeps for a while.
+ * 
+ * @author Erik Wramner
+ */
 public class FlowControllingCounter implements Counter {
     private final FlowController _flowController;
     private final Counter _counter;
 
+    /**
+     * Constructor.
+     * 
+     * @param counter The message counter.
+     * @param flowController The flow controller.
+     */
     public FlowControllingCounter(Counter counter, FlowController flowController) {
         _counter = counter;
         _flowController = flowController;
     }
 
+    /**
+     * Increment count, sleep if going to fast.
+     * 
+     * @param count The count to add to the counter.
+     */
     @Override
     public void incrementCount(int count) {
         _counter.incrementCount(count);
         _flowController.sleepIfAboveLimit();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getCount() {
         return _counter.getCount();

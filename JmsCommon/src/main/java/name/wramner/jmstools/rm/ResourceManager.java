@@ -30,16 +30,33 @@ import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 
+/**
+ * A resource manager manages resources. Yeah, right. The name is awful. To be more specific a resource manager in this
+ * context manages the JMS resources for a producer or consumer as well as the transaction (XA or local) for the same.
+ * 
+ * @author Erik Wramner
+ */
 public abstract class ResourceManager implements AutoCloseable {
     private static final Map<String, Queue> QUEUE_MAP = new ConcurrentHashMap<>();
     private MessageProducer _producer;
     private MessageConsumer _consumer;
     protected final String _queueName;
 
+    /**
+     * Constructor.
+     * 
+     * @param queueName The queue name.
+     */
     public ResourceManager(String queueName) {
         _queueName = queueName;
     }
 
+    /**
+     * Get message producer, create if necessary.
+     * 
+     * @return producer.
+     * @throws JMSException on errors.
+     */
     public MessageProducer getMessageProducer() throws JMSException {
         if (_producer == null) {
             _producer = createMessageProducer();
@@ -47,28 +64,75 @@ public abstract class ResourceManager implements AutoCloseable {
         return _producer;
     }
 
+    /**
+     * Get message consumer, create if necessary. Also start connection.
+     * 
+     * @return consumer.
+     * @throws JMSException on errors.
+     */
     public MessageConsumer getMessageConsumer() throws JMSException {
         if (_consumer == null) {
-            _consumer = createMessageConsumer();            
+            _consumer = createMessageConsumer();
         }
         return _consumer;
     }
 
+    /**
+     * Get JMS session.
+     * 
+     * @return session.
+     * @throws JMSException on errors.
+     */
     public abstract Session getSession() throws JMSException;
 
+    /**
+     * Create a message producer.
+     * 
+     * @return new producer.
+     * @throws JMSException on errors.
+     */
     protected abstract MessageProducer createMessageProducer() throws JMSException;
 
+    /**
+     * Create a message consumer.
+     * 
+     * @return new consumer.
+     * @throws JMSException on errors.
+     */
     protected abstract MessageConsumer createMessageConsumer() throws JMSException;
 
+    /**
+     * Start a new transaction. The default implementation does nothing, but for XA transactions this is needed.
+     * 
+     * @throws RollbackException if rolled back.
+     * @throws JMSException on JMS errors.
+     */
     public void startTransaction() throws RollbackException, JMSException {
     }
 
-    public void commit() throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException {
-    }
+    /**
+     * Commit transaction.
+     * 
+     * @throws JMSException on JMS errors.
+     * @throws RollbackException if rolled back.
+     * @throws HeuristicMixedException if partly committed and partly rolled back.
+     * @throws HeuristicRollbackException if rolled back.
+     */
+    public abstract void commit() throws JMSException, RollbackException, HeuristicMixedException,
+                    HeuristicRollbackException;
 
-    public void rollback() throws JMSException {
-    }
+    /**
+     * Roll back transaction.
+     * 
+     * @throws JMSException on JMS errors.
+     */
+    public abstract void rollback() throws JMSException;
 
+    /**
+     * Close resources.
+     * 
+     * @see java.lang.AutoCloseable#close()
+     */
     @Override
     public void close() {
         closeSafely(_consumer);

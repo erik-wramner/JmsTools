@@ -15,8 +15,25 @@
  */
 package name.wramner.jmstools.counter;
 
+/**
+ * A counter is thread-safe and can be incremented and read. A counter can keep track of the number of received messages
+ * across all threads, for example. Given the intended use integer precision should be good enough; no one sends more
+ * than {@link Integer#MAX_VALUE} messages in a performance test.
+ * 
+ * @author Erik Wramner
+ */
 public interface Counter {
+    /**
+     * Increment counter.
+     * 
+     * @param count The positive value to add to the counter.
+     */
     void incrementCount(int count);
 
+    /**
+     * Get current value for counter.
+     * 
+     * @return current count.
+     */
     int getCount();
 }

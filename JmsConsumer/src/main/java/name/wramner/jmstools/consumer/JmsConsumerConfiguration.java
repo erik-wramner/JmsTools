@@ -88,7 +88,7 @@ public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
         }
 
         if (_untilDrained) {
-            stopController = new ParentAndThenCountStopController(stopController, receiveTimeoutCounter);
+            stopController = new ParentAndThenCountStopController(stopController, receiveTimeoutCounter, 1);
         }
 
         return stopController;

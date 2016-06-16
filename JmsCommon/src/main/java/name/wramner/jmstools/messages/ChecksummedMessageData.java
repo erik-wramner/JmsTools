@@ -19,17 +19,38 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+/**
+ * Base class for message data classes. Calculates and caches an MD5 checksum for the payload.
+ * 
+ * @author Erik Wramner
+ */
 public class ChecksummedMessageData {
     private final String _checksum;
 
+    /**
+     * Constructor.
+     * 
+     * @param data The payload as raw bytes.
+     */
     public ChecksummedMessageData(byte[] data) {
         _checksum = calculateChecksum(data);
     }
 
+    /**
+     * Get checksum.
+     * 
+     * @return checksum.
+     */
     public String getChecksum() {
         return _checksum;
     }
 
+    /**
+     * Compute checksum.
+     * 
+     * @param data The raw bytes.
+     * @return checksum in text format.
+     */
     public static String calculateChecksum(byte[] data) {
         try {
             return String.format("%032x", new BigInteger(1, MessageDigest.getInstance("MD5").digest(data)));

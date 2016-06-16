@@ -24,17 +24,33 @@ import name.wramner.jmstools.consumer.AqJmsConsumer.AqConsumerConfiguration;
 
 import org.kohsuke.args4j.Option;
 
+/**
+ * JMS consumer for Oracle AQ.
+ * 
+ * @author Erik Wramner
+ */
 public class AqJmsConsumer extends JmsConsumer<AqConsumerConfiguration> {
 
+    /**
+     * Program entry point.
+     * 
+     * @param args Command line.
+     */
     public static void main(String[] args) {
         new AqJmsConsumer().run(args);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected AqConsumerConfiguration createConfiguration() {
         return new AqConsumerConfiguration();
     }
 
+    /**
+     * AQ-specific JMS consumer configuration.
+     */
     public static class AqConsumerConfiguration extends JmsConsumerConfiguration {
         @Option(name = "-url", aliases = { "--aq-jdbc-url" }, usage = "JDBC URL for AQ database connection", required = true)
         private String _aqJdbcUrl;

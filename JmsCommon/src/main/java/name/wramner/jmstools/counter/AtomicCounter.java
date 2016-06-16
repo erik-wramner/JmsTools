@@ -17,14 +17,25 @@ package name.wramner.jmstools.counter;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * A {@link Counter} implemented with atomics.
+ * 
+ * @author Erik Wramner
+ */
 public class AtomicCounter implements Counter {
     private final AtomicInteger _count = new AtomicInteger();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void incrementCount(int count) {
         _count.addAndGet(count);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getCount() {
         return _count.get();

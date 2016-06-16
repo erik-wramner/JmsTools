@@ -17,15 +17,29 @@ package name.wramner.jmstools.rm;
 
 import javax.jms.ConnectionFactory;
 
+/**
+ * Factory for standard non-XA JMS {@link ResourceManager}.
+ * 
+ * @author Erik Wramner
+ */
 public class JmsResourceManagerFactory implements ResourceManagerFactory {
     private final ConnectionFactory _connFactory;
     private final String _queueName;
 
+    /**
+     * Constructor.
+     * 
+     * @param connFactory The JMS connection factory.
+     * @param queueName The queue name.
+     */
     public JmsResourceManagerFactory(ConnectionFactory connFactory, String queueName) {
         _connFactory = connFactory;
         _queueName = queueName;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ResourceManager createResourceManager() {
         return new JmsResourceManager(_connFactory, _queueName);

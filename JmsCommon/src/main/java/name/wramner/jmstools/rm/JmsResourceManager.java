@@ -22,22 +22,39 @@ import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
 
+/**
+ * Resource manager for standard non-XA JMS.
+ * 
+ * @author Erik Wramner
+ */
 public class JmsResourceManager extends ResourceManager {
     private final ConnectionFactory _connFactory;
     private Connection _conn;
     private Session _session;
 
+    /**
+     * Constructor.
+     * 
+     * @param connFactory The JMS connection factory.
+     * @param queueName The queue name.
+     */
     public JmsResourceManager(ConnectionFactory connFactory, String queueName) {
         super(queueName);
         _connFactory = connFactory;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected MessageProducer createMessageProducer() throws JMSException {
         Session session = getSession();
         return session.createProducer(getQueue(session, _queueName));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected MessageConsumer createMessageConsumer() throws JMSException {
         Session session = getSession();
@@ -46,6 +63,9 @@ public class JmsResourceManager extends ResourceManager {
         return consumer;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Session getSession() throws JMSException {
         if (_session == null) {
@@ -57,11 +77,17 @@ public class JmsResourceManager extends ResourceManager {
         return _session;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void startTransaction() {
         // Only for XA transactions
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void commit() throws JMSException {
         if (_session != null) {
@@ -69,6 +95,9 @@ public class JmsResourceManager extends ResourceManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void rollback() throws JMSException {
         if (_session != null) {
@@ -76,6 +105,9 @@ public class JmsResourceManager extends ResourceManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         super.close();

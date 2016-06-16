@@ -40,6 +40,15 @@ import name.wramner.jmstools.stopcontroller.StopController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An enqueue worker sends test messages provided by a {@link MessageProvider} until a {@link StopController} is
+ * satisfied. All messages are logged to a {@link Counter}. The connection may use standard or XA transaction semantics.
+ * Messages may be logged with unique identities, making it possible to check if a message has been lost or delivered
+ * twice. Receive timeout, sleep times, rollbacks and many other settings are configurable.
+ * 
+ * @author Erik Wramner
+ * @param <T> The configuration class.
+ */
 public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnable {
     private static final long JMS_EXCEPTION_RECOVERY_TIME_MS = 10000L;
     private final Logger _logger = LoggerFactory.getLogger(getClass());
@@ -58,6 +67,16 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
     private final DelayedDeliveryAdapter _delayedDeliveryAdapter;
     private final ResourceManagerFactory _resourceManagerFactory;
 
+    /**
+     * Constructor.
+     * 
+     * @param resourceManagerFactory The resource manager factory.
+     * @param counter The counter for sent messages.
+     * @param stopController The stop controller
+     * @param messageProvider The message provider.
+     * @param logFile The log file for sent messages or null.
+     * @param config The configuration for other options.
+     */
     public EnqueueWorker(ResourceManagerFactory resourceManagerFactory, Counter counter, StopController stopController,
                     MessageProvider messageProvider, File logFile, T config) {
         _resourceManagerFactory = resourceManagerFactory;
@@ -84,6 +103,9 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
         }
     }
 
+    /**
+     * Send messages until done.
+     */
     @Override
     public void run() {
         _logger.debug("Enqueue worker starting...");

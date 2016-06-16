@@ -26,6 +26,11 @@ import name.wramner.jmstools.counter.Counter;
 
 import org.kohsuke.args4j.Option;
 
+/**
+ * Base class for JMS client configuration classes. Includes options common to both consumers and producers.
+ * 
+ * @author Erik Wramner
+ */
 public abstract class JmsClientConfiguration {
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
     protected int _threads = 1;
@@ -51,35 +56,83 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-xa", aliases = "--xa-transactions", usage = "Use XA (two-phase) transactions")
     protected boolean _useXa;
 
+    /**
+     * Get the number of threads to use.
+     * 
+     * @return number of threads.
+     */
     public int getThreads() {
         return _threads;
     }
 
+    /**
+     * Get the queue name.
+     * 
+     * @return queue name.
+     */
     public String getQueueName() {
         return _queueName;
     }
 
+    /**
+     * Check if statistics should be logged every minute. Statistics are cheap.
+     * 
+     * @return true to log statistics.
+     */
     public boolean isStatisticsEnabled() {
         return _stats;
     }
 
+    /**
+     * Get the percentage of transactions (message batches) to roll back.
+     * 
+     * @return rollback percentage or null for none.
+     */
     public Double getRollbackPercentage() {
         return _rollbackPercentage;
     }
 
+    /**
+     * Get the directory for message logs. It is used if every produced/consumed message is logged with unique
+     * identities, making it possible to verify that no messages have been lost or delivered multiple times.
+     * 
+     * @return log directory.
+     */
     public File getLogDirectory() {
         return _logDirectory;
     }
 
+    /**
+     * Create a thread-safe counter for received messages.
+     * 
+     * @return message counter.
+     */
     public Counter createMessageCounter() {
         return new AtomicCounter();
     }
 
+    /**
+     * Check if XA transactions are enabled.
+     * 
+     * @return true for XA, false for standard.
+     */
     public boolean useXa() {
         return _useXa;
     }
 
+    /**
+     * Create a JMS connection factory for normal transactions.
+     * 
+     * @return connection factory.
+     * @throws JMSException on errors.
+     */
     public abstract ConnectionFactory createConnectionFactory() throws JMSException;
 
+    /**
+     * Create a JMS connection factory for XA transactions.
+     * 
+     * @return connection factory.
+     * @throws JMSException on errors.
+     */
     public abstract XAConnectionFactory createXAConnectionFactory() throws JMSException;
 }

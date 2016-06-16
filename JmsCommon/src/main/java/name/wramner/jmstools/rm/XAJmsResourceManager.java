@@ -34,6 +34,11 @@ import org.slf4j.LoggerFactory;
 
 import com.atomikos.icatch.jta.UserTransactionManager;
 
+/**
+ * Resource manager for XA JMS.
+ * 
+ * @author Erik Wramner
+ */
 public class XAJmsResourceManager extends ResourceManager {
     private final Logger _logger = LoggerFactory.getLogger(getClass());
     private final UserTransactionManager _transactionManager;
@@ -41,6 +46,13 @@ public class XAJmsResourceManager extends ResourceManager {
     private XAConnection _conn;
     private XASession _session;
 
+    /**
+     * Constructor.
+     * 
+     * @param transactionManager The transaction manager.
+     * @param connFactory The XA connection factory.
+     * @param queueName The queue name.
+     */
     public XAJmsResourceManager(UserTransactionManager transactionManager, XAConnectionFactory connFactory,
                     String queueName) {
         super(queueName);
@@ -48,12 +60,18 @@ public class XAJmsResourceManager extends ResourceManager {
         _connFactory = connFactory;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected MessageProducer createMessageProducer() throws JMSException {
         XASession session = getSession();
         return session.createProducer(getQueue(session, _queueName));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected MessageConsumer createMessageConsumer() throws JMSException {
         XASession session = getSession();
@@ -62,6 +80,9 @@ public class XAJmsResourceManager extends ResourceManager {
         return consumer;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public XASession getSession() throws JMSException {
         if (_session == null) {
@@ -73,6 +94,9 @@ public class XAJmsResourceManager extends ResourceManager {
         return _session;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void startTransaction() throws RollbackException, JMSException {
         try {
@@ -85,6 +109,9 @@ public class XAJmsResourceManager extends ResourceManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void commit() throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException {
         try {
@@ -99,6 +126,9 @@ public class XAJmsResourceManager extends ResourceManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void rollback() throws JMSException {
         try {
@@ -113,6 +143,9 @@ public class XAJmsResourceManager extends ResourceManager {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void close() {
         super.close();

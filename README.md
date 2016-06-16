@@ -30,18 +30,13 @@ Some of the options:
 * Prepared messages from a directory or random messages with a minimum and maximum size.
 * Outliers (large messages with a certain probability).
 * Delayed/scheduled messages (where supported).
-* Text and binary messages.
+* Text and byte messages.
 * Duration-based tests.
 * Count-based tests.
 * Configurable receive timeouts, polling delays, batch sizes, sleep times after each
   batch and much more.
-* Producer flow control for AQ.
-
-## Missing features
-
-Some features are still missing. The short-term plan includes:
-
-* XA transactions (two-phase commits)
+* Client-side producer flow control for AQ.
+* XA transactions (two-phase commits).
 
 Feel free to submit pull requests, bug reports or to ask for other improvements.
 

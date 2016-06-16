@@ -15,12 +15,14 @@
  */
 package name.wramner.jmstools.messages;
 
-import javax.jms.*;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.Session;
 
 /**
- * A message provider
+ * A message provider can create JMS messages enriched with a checksum property that can be checked on the other side.
  * 
- * @author extewr
+ * @author Erik Wramner
  */
 public interface MessageProvider {
 

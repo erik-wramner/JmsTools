@@ -92,14 +92,29 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     @Option(name = "-delay-sec", aliases = "--delayed-delivery-seconds", usage = "The number of seconds to delay scheduled messages")
     protected int _delayedDeliverySeconds;
 
+    /**
+     * Get the percentage of delayed messages.
+     * 
+     * @return percentage or null for none.
+     */
     public Double getDelayedDeliveryPercentage() {
         return _delayedDeliveryPercentage;
     }
 
+    /**
+     * Get the delay time in seconds for delayed messages.
+     * 
+     * @return delay time.
+     */
     public int getDelayedDeliverySeconds() {
         return _delayedDeliverySeconds;
     }
 
+    /**
+     * Get the outlier size in bytes. An outlier is a message much larger than the normal message size.
+     * 
+     * @return outlier size in bytes.
+     */
     public Integer getOutlierSizeInBytes() {
         if (_outlierSize != null) {
             if (_outlierSize.endsWith("G")) {
@@ -115,26 +130,57 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         return null;
     }
 
+    /**
+     * Get the sleep time in milliseconds after a batch (a commit).
+     * 
+     * @return sleep time.
+     */
     public int getSleepTimeMillisAfterBatch() {
         return _sleepTimeMillisAfterBatch;
     }
 
+    /**
+     * Get the minimum message size for random messages.
+     * 
+     * @return size.
+     */
     private Integer getMinMessageSize() {
         return _minMessageSize != null ? _minMessageSize : _maxMessageSize;
     }
 
+    /**
+     * Get the maximum message size for random messages.
+     * 
+     * @return size.
+     */
     private Integer getMaxMessageSize() {
         return _maxMessageSize != null ? _maxMessageSize : _minMessageSize;
     }
 
+    /**
+     * Check if id and checksum is enabled. If so every message is enriched with a unique GUID and a MD5 checksum.
+     * 
+     * @return true if messages should be stamped with id and checksum.
+     */
     public boolean isIdAndChecksumEnabled() {
         return _idAndChecksumEnabled;
     }
 
+    /**
+     * Get the number of messages to send per commit.
+     * 
+     * @return number of messages per commit (batch size).
+     */
     public int getMessagesPerBatch() {
         return _messagesPerBatch;
     }
 
+    /**
+     * Create a stop controller based on the configuration options.
+     * 
+     * @param counter The message counter.
+     * @return stop controller.
+     */
     public StopController createStopController(Counter counter) {
         if (_durationMinutes != null && _stopAfterMessages != null) {
             return new DurationOrCountStopController(_stopAfterMessages.intValue(), counter,
@@ -148,6 +194,12 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         }
     }
 
+    /**
+     * Create a message provider based on the configuration options.
+     * 
+     * @return message provider.
+     * @throws IOException on failure to read prepared messages.
+     */
     public MessageProvider createMessageProvider() throws IOException {
         boolean messageTypeText = _messageType == MessageType.TEXT;
         if (_messageFileDirectory != null) {
@@ -169,6 +221,12 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         }
     }
 
+    /**
+     * Create an adapter for delayed message delivery. This is provider specific, so at this level null will always be
+     * returned.
+     * 
+     * @return null.
+     */
     public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
         return null;
     }

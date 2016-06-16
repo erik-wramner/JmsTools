@@ -15,6 +15,14 @@
  */
 package name.wramner.jmstools.producer;
 
+/**
+ * A flow controller makes the producer slow down (or rather grind to a halt) when the consumer can't keep up.
+ * 
+ * @author Erik Wramner
+ */
 public interface FlowController {
+    /**
+     * Sleep for a while if above the configured limit.
+     */
     void sleepIfAboveLimit();
 }

@@ -15,14 +15,29 @@
  */
 package name.wramner.jmstools.messages;
 
+import javax.jms.BytesMessage;
+
+/**
+ * Message data for JMS {@link BytesMessage} messages.
+ */
 public class BytesMessageData extends ChecksummedMessageData {
     private final byte[] _data;
 
+    /**
+     * Constructor.
+     * 
+     * @param data The payload.
+     */
     public BytesMessageData(byte[] data) {
         super(data);
         _data = data;
     }
 
+    /**
+     * Get payload.
+     * 
+     * @return payload.
+     */
     public byte[] getData() {
         return _data;
     }

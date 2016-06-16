@@ -29,10 +29,19 @@ public class ParentAndThenCountStopController extends BaseStopController {
     private final StopController _parent;
     private final AtomicReference<StopController> _drainedControllerReference = new AtomicReference<>();
     private final Counter _receiveTimeoutCounter;
+    private final int _count;
 
-    public ParentAndThenCountStopController(StopController parent, Counter counter) {
+    /**
+     * Constructor.
+     * 
+     * @param parent The parent stop controller that must complete first.
+     * @param counter The counter.
+     * @param count The count for the counter to reach after the parent has stopped.
+     */
+    public ParentAndThenCountStopController(StopController parent, Counter counter, int count) {
         _parent = parent;
         _receiveTimeoutCounter = counter;
+        _count = count;
     }
 
     @Override
@@ -42,7 +51,8 @@ public class ParentAndThenCountStopController extends BaseStopController {
         }
         StopController drainedController = _drainedControllerReference.get();
         if (drainedController == null) {
-            drainedController = new CountStopController(_receiveTimeoutCounter.getCount() + 1, _receiveTimeoutCounter);
+            drainedController = new CountStopController(_receiveTimeoutCounter.getCount() + _count,
+                            _receiveTimeoutCounter);
             _drainedControllerReference.set(drainedController);
         }
         return drainedController.keepRunning();

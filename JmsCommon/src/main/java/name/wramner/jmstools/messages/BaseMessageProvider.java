@@ -30,8 +30,8 @@ import javax.jms.Message;
 import javax.jms.Session;
 
 /**
- * A message provider initializes messages and provides them to the enqueue worker as requested. Messages can be read
- * from a file/directory or generated randomly.
+ * A message provider initializes messages that can be sent. Messages can be read from a file/directory or generated
+ * randomly.
  * 
  * @author Erik Wramner
  *

@@ -25,19 +25,33 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQXAConnectionFactory;
 import org.kohsuke.args4j.Option;
 
+/**
+ * Command line JMS ActiveMQ message consumer intended for benchmarks and other tests.
+ * 
+ * @author Erik Wramner
+ */
 public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
 
+    /**
+     * Program entry point.
+     * 
+     * @param args Command line.
+     * @see AmqConsumerConfiguration
+     */
     public static void main(String[] args) {
         new AmqJmsConsumer().run(args);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected AmqConsumerConfiguration createConfiguration() {
         return new AmqConsumerConfiguration();
     }
 
     /**
-     * ActiveMQ producer configuration. It extends the basic JMS consumer configuration with ActiveMQ-specific settings
+     * ActiveMQ consumer configuration. It extends the basic JMS consumer configuration with ActiveMQ-specific settings
      * such as broker URL, user and password needed in order to connect to the ActiveMQ broker.
      * 
      * @author Erik Wramner
