@@ -15,40 +15,92 @@
  */
 package name.wramner.jmstools;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import javax.jms.JMSException;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 
+import com.atomikos.icatch.config.UserTransactionService;
+import com.atomikos.icatch.config.UserTransactionServiceImp;
+
 /**
- * Base class for JMS producers and consumers with support for command line parsing and thread creation/joining.
+ * Base class for JMS producers and consumers with support for command line parsing and thread creation/joining. It also
+ * initializes and stops the transaction manager for XA transactions if they are enabled.
  * 
  * @author Erik Wramner
  * @param <T> configuration class.
  */
 public abstract class JmsClient<T extends JmsClientConfiguration> {
+    private UserTransactionService _userTransactionService;
 
     /**
      * Parse command line arguments and initialize configuration, create threads with workers, start the threads and
      * wait for completion. Exit on errors.
-     * 
+     *
      * @param args The command line.
      */
     public void run(String[] args) {
         T config = createConfiguration();
         if (parseCommandLine(args, config)) {
             try {
+                if (config.useXa()) {
+                    _userTransactionService = new UserTransactionServiceImp();
+                    _userTransactionService.init(createAtomikosInitializationProperties(config));
+                }
                 List<Thread> threads = createThreadsWithWorkers(config);
                 startThreads(threads);
                 waitForThreadsToComplete(threads);
             } catch (Exception e) {
                 System.out.println("Failed with exception: " + e.getMessage());
                 e.printStackTrace(System.out);
-                System.exit(1);
+            } finally {
+                if (_userTransactionService != null) {
+                    int maxWaitSeconds = config.getJtaTimeoutSeconds() + 10;
+                    _userTransactionService.shutdown(TimeUnit.MILLISECONDS.convert(maxWaitSeconds, TimeUnit.SECONDS));
+                }
             }
+            System.exit(0);
         }
+    }
+
+    /**
+     * Create initialization properties for the Atomikos transaction manager.
+     *
+     * @param config The configuration.
+     * @return initialization properties.
+     * @throws UnknownHostException on failure to resolve local host.
+     */
+    protected Properties createAtomikosInitializationProperties(T config) throws UnknownHostException {
+        Properties props = new Properties();
+        props.setProperty("com.atomikos.icatch.automatic_resource_registration", "true");
+        props.setProperty("com.atomikos.icatch.max_actives", String.valueOf(config.getThreads() + 1));
+        String jtaTimeoutMillis = String.valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(),
+                TimeUnit.SECONDS));
+        props.setProperty("com.atomikos.icatch.max_timeout", jtaTimeoutMillis);
+        props.setProperty("com.atomikos.icatch.default_jta_timeout",
+                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(), TimeUnit.SECONDS)));
+        if (config.getXaLogBaseDir() != null) {
+            props.setProperty("com.atomikos.icatch.log_base_dir", config.getXaLogBaseDir().getAbsolutePath());
+        }
+        props.setProperty("com.atomikos.icatch.tm_unique_name", config.getTmName() != null ? config.getTmName()
+                : createTmName());
+        return props;
+    }
+
+    /**
+     * Build a reasonably unique transaction manager name.
+     *
+     * @return name.
+     * @throws UnknownHostException on failure to find IP address for local host.
+     */
+    protected String createTmName() throws UnknownHostException {
+        return getClass().getSimpleName() + "-" + InetAddress.getLocalHost().getHostAddress();
     }
 
     /**
@@ -60,7 +112,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
 
     /**
      * Create threads with workers.
-     * 
+     *
      * @param config The initialized configuration.
      * @return list with threads, not started.
      * @throws JMSException on JMS errors.

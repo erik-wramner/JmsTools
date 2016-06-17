@@ -32,6 +32,8 @@ import org.kohsuke.args4j.Option;
  * @author Erik Wramner
  */
 public abstract class JmsClientConfiguration {
+    private static final int DEFAULT_JTA_TIMEOUT_SECONDS = 300;
+
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
     protected int _threads = 1;
 
@@ -56,9 +58,18 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-xa", aliases = "--xa-transactions", usage = "Use XA (two-phase) transactions")
     protected boolean _useXa;
 
+    @Option(name = "-tmname", aliases = "--xa-tm-name", usage = "XA: The unique transaction manager name", depends = { "-xa" })
+    protected String _tmName;
+
+    @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = { "-xa" })
+    protected File _xaLogBaseDir;
+
+    @Option(name = "-jtatimeout", aliases = "--xa-jta-timeout-seconds", usage = "XA: The transaction timeout", depends = { "-xa" })
+    protected int _jtaTimeoutSeconds = DEFAULT_JTA_TIMEOUT_SECONDS;
+
     /**
      * Get the number of threads to use.
-     * 
+     *
      * @return number of threads.
      */
     public int getThreads() {
@@ -67,7 +78,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Get the queue name.
-     * 
+     *
      * @return queue name.
      */
     public String getQueueName() {
@@ -76,7 +87,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Check if statistics should be logged every minute. Statistics are cheap.
-     * 
+     *
      * @return true to log statistics.
      */
     public boolean isStatisticsEnabled() {
@@ -85,7 +96,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Get the percentage of transactions (message batches) to roll back.
-     * 
+     *
      * @return rollback percentage or null for none.
      */
     public Double getRollbackPercentage() {
@@ -95,7 +106,7 @@ public abstract class JmsClientConfiguration {
     /**
      * Get the directory for message logs. It is used if every produced/consumed message is logged with unique
      * identities, making it possible to verify that no messages have been lost or delivered multiple times.
-     * 
+     *
      * @return log directory.
      */
     public File getLogDirectory() {
@@ -104,7 +115,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Create a thread-safe counter for received messages.
-     * 
+     *
      * @return message counter.
      */
     public Counter createMessageCounter() {
@@ -113,7 +124,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Check if XA transactions are enabled.
-     * 
+     *
      * @return true for XA, false for standard.
      */
     public boolean useXa() {
@@ -121,8 +132,37 @@ public abstract class JmsClientConfiguration {
     }
 
     /**
+     * Get the unique transaction manager name for XA transactions. This is optional, but if the same client is started
+     * multiple times on the same machine the default name will not be unique. In that case the option must be used.
+     *
+     * @return transaction manager name (must be unique).
+     */
+    public String getTmName() {
+        return _tmName;
+    }
+
+    /**
+     * Get the base directory for XA transaction manager logs. As this is a test tool the logs are probably not
+     * critical, but for real systems they are vital. Pick a fast and reliable disk if possible.
+     *
+     * @return transaction manager log directory.
+     */
+    public File getXaLogBaseDir() {
+        return _xaLogBaseDir;
+    }
+
+    /**
+     * Get the XA transaction timeout in seconds.
+     *
+     * @return timeout for global transactions in seconds.
+     */
+    public int getJtaTimeoutSeconds() {
+        return _jtaTimeoutSeconds;
+    }
+
+    /**
      * Create a JMS connection factory for normal transactions.
-     * 
+     *
      * @return connection factory.
      * @throws JMSException on errors.
      */
@@ -130,7 +170,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Create a JMS connection factory for XA transactions.
-     * 
+     *
      * @return connection factory.
      * @throws JMSException on errors.
      */
