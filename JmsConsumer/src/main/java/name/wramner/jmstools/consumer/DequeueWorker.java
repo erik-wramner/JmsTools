@@ -153,7 +153,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
 
                         if (shouldRollback()) {
                             resourceManager.rollback();
-                            _logger.debug("Rolled back {} {}", jmsId, applicationId);
+                            _logger.info("Rolled back {} {}", jmsId, applicationId);
                         } else {
                             resourceManager.commit();
                             _messageCounter.incrementCount(1);
@@ -166,17 +166,17 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
                 } catch (JMSException e) {
                     _logger.error("JMS error!", e);
                     if (jmsId != null) {
-                        _logger.error("Rolled back {} {}", jmsId, applicationId);
+                        _logger.info("Rolled back {} {}", jmsId, applicationId);
                     }
                 } catch (RollbackException | HeuristicRollbackException e) {
                     _logger.error("Failed to commit!", e);
                     if (jmsId != null) {
-                        _logger.error("Rolled back {} {}", jmsId, applicationId);
+                        _logger.info("Rolled back {} {}", jmsId, applicationId);
                     }
                 } catch (HeuristicMixedException e) {
                     _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
                     if (jmsId != null) {
-                        _logger.error("Rolled back or committed {} {}", jmsId, applicationId);
+                        _logger.error("Rolled back OR committed {} {}", jmsId, applicationId);
                     }
                 } finally {
                     jmsId = null;
