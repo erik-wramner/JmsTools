@@ -100,7 +100,7 @@ public class AqFlowController implements AutoCloseable, FlowController {
     }
 
     private class QueueDepthPoller implements Runnable {
-        private static final String QUEUE_DEPTH_SQL = "select ready from v$aq where qid = (select qid from user_queues where name = ?)";
+        private static final String QUEUE_DEPTH_SQL = "select ready+waiting from v$aq where qid = (select qid from user_queues where name = ?)";
         private static final int MAX_CONSEQUTIVE_DB_ERRORS = 10;
 
         @Override
