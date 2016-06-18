@@ -15,9 +15,18 @@
  */
 package name.wramner.jmstools.stopcontroller;
 
+/**
+ * Base class for stop controllers that handles the task of waking waiting threads up when the sub-class signals that it
+ * is time to stop by returning false from {@link #shouldKeepRunning()}.
+ * 
+ * @author Erik Wramner
+ */
 public abstract class BaseStopController implements StopController {
     private final Object _monitor = new Object();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean keepRunning() {
         if (shouldKeepRunning()) {
@@ -27,6 +36,9 @@ public abstract class BaseStopController implements StopController {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void waitForTimeoutOrDone(long timeToWaitMillis) {
         synchronized (_monitor) {
@@ -40,8 +52,16 @@ public abstract class BaseStopController implements StopController {
         }
     }
 
+    /**
+     * Check if done.
+     * 
+     * @return true to keep running, false when done.
+     */
     protected abstract boolean shouldKeepRunning();
 
+    /**
+     * Release any threads that are waiting for the stop controller.
+     */
     private void releaseWaitingThreads() {
         synchronized (_monitor) {
             _monitor.notifyAll();

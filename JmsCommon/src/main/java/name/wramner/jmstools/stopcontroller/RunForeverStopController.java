@@ -20,18 +20,9 @@ package name.wramner.jmstools.stopcontroller;
  * 
  * @author Erik Wramner
  */
-public class RunForeverStopController implements StopController {
+public class RunForeverStopController extends BaseStopController {
     @Override
-    public boolean keepRunning() {
+    protected boolean shouldKeepRunning() {
         return true;
-    }
-
-    @Override
-    public void waitForTimeoutOrDone(long timeToWaitMillis) {
-        try {
-            Thread.sleep(timeToWaitMillis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

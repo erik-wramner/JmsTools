@@ -45,7 +45,7 @@ public class ParentAndThenCountStopController extends BaseStopController {
     }
 
     @Override
-    public boolean shouldKeepRunning() {
+    protected boolean shouldKeepRunning() {
         if (_parent.keepRunning()) {
             return true;
         }

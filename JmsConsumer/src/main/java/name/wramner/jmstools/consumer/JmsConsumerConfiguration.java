@@ -18,11 +18,11 @@ package name.wramner.jmstools.consumer;
 import name.wramner.jmstools.JmsClientConfiguration;
 import name.wramner.jmstools.counter.AtomicCounter;
 import name.wramner.jmstools.counter.Counter;
+import name.wramner.jmstools.stopcontroller.ChainStopController;
 import name.wramner.jmstools.stopcontroller.CountStopController;
+import name.wramner.jmstools.stopcontroller.DrainedStopController;
 import name.wramner.jmstools.stopcontroller.DurationOrCountStopController;
 import name.wramner.jmstools.stopcontroller.DurationStopController;
-import name.wramner.jmstools.stopcontroller.InstantStopController;
-import name.wramner.jmstools.stopcontroller.ParentAndThenCountStopController;
 import name.wramner.jmstools.stopcontroller.RunForeverStopController;
 import name.wramner.jmstools.stopcontroller.StopController;
 
@@ -34,6 +34,7 @@ import org.kohsuke.args4j.Option;
  * @author Erik Wramner
  */
 public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
+    private static final long DRAINED_TIMEOUT_MS = 500L;
 
     @Option(name = "-drain", aliases = { "--until-drained" }, usage = "Run until all messages have been consumed")
     private boolean _untilDrained;
@@ -83,12 +84,15 @@ public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
             stopController = new DurationStopController(_durationMinutes.intValue());
         } else if (_stopAfterMessages != null) {
             stopController = new CountStopController(_stopAfterMessages.intValue(), messageCounter);
+        } else if (_untilDrained) {
+            return new DrainedStopController(messageCounter, receiveTimeoutCounter, DRAINED_TIMEOUT_MS);
         } else {
-            stopController = _untilDrained ? new InstantStopController() : new RunForeverStopController();
+            return new RunForeverStopController();
         }
 
         if (_untilDrained) {
-            stopController = new ParentAndThenCountStopController(stopController, receiveTimeoutCounter, 1);
+            stopController = new ChainStopController(stopController, new DrainedStopController(messageCounter,
+                            receiveTimeoutCounter, DRAINED_TIMEOUT_MS));
         }
 
         return stopController;

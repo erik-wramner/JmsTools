@@ -32,7 +32,7 @@ public class CountStopController extends BaseStopController {
     }
 
     @Override
-    public boolean shouldKeepRunning() {
+    protected boolean shouldKeepRunning() {
         return _counter.getCount() < _count;
     }
 }

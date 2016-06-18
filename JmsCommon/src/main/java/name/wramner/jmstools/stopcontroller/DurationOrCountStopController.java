@@ -36,7 +36,7 @@ public class DurationOrCountStopController extends BaseStopController {
     }
 
     @Override
-    public boolean shouldKeepRunning() {
+    protected boolean shouldKeepRunning() {
         return _counter.getCount() < _count && System.currentTimeMillis() < _endTimeMillis;
     }
 }
