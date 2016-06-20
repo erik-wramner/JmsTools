@@ -15,12 +15,9 @@
  */
 package name.wramner.jmstools.consumer;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Random;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
@@ -31,16 +28,15 @@ import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 
+import name.wramner.jmstools.JmsClientWorker;
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.BytesMessageData;
 import name.wramner.jmstools.messages.ChecksummedMessageData;
+import name.wramner.jmstools.messages.MessageProvider;
 import name.wramner.jmstools.messages.TextMessageData;
 import name.wramner.jmstools.rm.ResourceManager;
 import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A dequeue worker reads and discards messages. It logs messages read and read misses (receive timeouts). It can be
@@ -51,17 +47,8 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Erik Wramner
  */
-public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnable {
-    private static final long JMS_EXCEPTION_RECOVERY_TIME_MS = 10000L;
-    private final Logger _logger = LoggerFactory.getLogger(getClass());
-    private final Random _random = new Random();
-    private final ResourceManagerFactory _resourceManagerFactory;
-    private final Counter _messageCounter;
+public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClientWorker<T> {
     private final Counter _receiveTimeoutCounter;
-    private final StopController _stopController;
-    private final boolean _rollbacksEnabled;
-    private final double _rollbackProbability;
-    private final File _logFile;
     private final int _receiveTimeoutMillis;
     private final int _pollingDelayMillis;
     private final boolean _verifyChecksum;
@@ -79,120 +66,91 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
      */
     public DequeueWorker(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
                     Counter receiveTimeoutCounter, StopController stopController, File logFile, T config) {
-        _resourceManagerFactory = resourceManagerFactory;
-        _messageCounter = messageCounter;
+        super(resourceManagerFactory, messageCounter, stopController, logFile, config);
         _receiveTimeoutCounter = receiveTimeoutCounter;
-        _stopController = stopController;
-        _logFile = logFile;
-        _rollbacksEnabled = config.getRollbackPercentage() != null;
-        _rollbackProbability = _rollbacksEnabled ? config.getRollbackPercentage().doubleValue() / 100.0 : 0.0;
         _receiveTimeoutMillis = config.getReceiveTimeoutMillis();
         _pollingDelayMillis = config.getPollingDelayMillis();
         _verifyChecksum = config.shouldVerifyChecksum();
         _shouldCommitOnReceiveTimeout = config.shouldCommitOnReceiveTimeout();
     }
 
-    /**
-     * Dequeue messages until the stop controller says time is out or until a non-JMS error occurs.
-     */
-    @Override
-    public void run() {
-        _logger.debug("Dequeue worker starting...");
-        OutputStream os = null;
-        try {
-            if (_logFile != null) {
-                os = new BufferedOutputStream(new FileOutputStream(_logFile));
-            }
+    protected void processMessages(OutputStream os) throws IOException {
+        String jmsId = null;
+        String applicationId = null;
+        try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
+            MessageConsumer consumer = resourceManager.getMessageConsumer();
+
+            boolean hasTransaction = false;
             while (_stopController.keepRunning()) {
-                String jmsId = null;
-                String applicationId = null;
-                try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
-                    MessageConsumer consumer = resourceManager.getMessageConsumer();
-
-                    boolean hasTransaction = false;
-                    while (_stopController.keepRunning()) {
-                        if (!hasTransaction) {
-                            resourceManager.startTransaction();
-                            hasTransaction = true;
-                        }
-
-                        Message msg = _receiveTimeoutMillis > 0 ? consumer.receive(_receiveTimeoutMillis) : consumer
-                                        .receiveNoWait();
-                        if (msg == null) {
-                            _receiveTimeoutCounter.incrementCount(1);
-                            if (_shouldCommitOnReceiveTimeout) {
-                                resourceManager.commit();
-                                hasTransaction = false;
-                            }
-                            if (_pollingDelayMillis > 0) {
-                                _logger.debug("No message, sleeping {} ms", _pollingDelayMillis);
-                                _stopController.waitForTimeoutOrDone(_pollingDelayMillis);
-                            }
-                            continue;
-                        }
-
-                        jmsId = msg.getJMSMessageID();
-                        applicationId = msg.getStringProperty("Unique-Message-Id");
-
-                        if (_verifyChecksum) {
-                            String md5 = msg.getStringProperty("Payload-Checksum-MD5");
-                            if (md5 == null) {
-                                _logger.error("Message with JMS id {} has no checksum property!", jmsId);
-                            } else if (msg instanceof TextMessage) {
-                                verifyChecksum(new TextMessageData(((TextMessage) msg).getText()), jmsId,
-                                                applicationId, md5);
-                            } else if (msg instanceof BytesMessage) {
-                                BytesMessage bytesMessage = (BytesMessage) msg;
-                                byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
-                                bytesMessage.readBytes(payload);
-                                verifyChecksum(new BytesMessageData(payload), jmsId, applicationId, md5);
-                            } else {
-                                _logger.error("Message {} neither BytesMessage nor TextMessage!", jmsId);
-                            }
-                        }
-
-                        if (shouldRollback()) {
-                            resourceManager.rollback();
-                            _logger.info("Rolled back {} {}", jmsId, applicationId);
-                        } else {
-                            resourceManager.commit();
-                            _messageCounter.incrementCount(1);
-                            if (os != null) {
-                                logMessageIdsToFile(os, jmsId, applicationId);
-                            }
-                        }
-                        hasTransaction = false;
-                    }
-                } catch (JMSException e) {
-                    _logger.error("JMS error!", e);
-                    if (jmsId != null) {
-                        _logger.info("Rolled back {} {}", jmsId, applicationId);
-                    }
-                } catch (RollbackException | HeuristicRollbackException e) {
-                    _logger.error("Failed to commit!", e);
-                    if (jmsId != null) {
-                        _logger.info("Rolled back {} {}", jmsId, applicationId);
-                    }
-                } catch (HeuristicMixedException e) {
-                    _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
-                    if (jmsId != null) {
-                        _logger.error("Rolled back OR committed {} {}", jmsId, applicationId);
-                    }
-                } finally {
-                    jmsId = null;
-                    applicationId = null;
+                if (!hasTransaction) {
+                    resourceManager.startTransaction();
+                    hasTransaction = true;
                 }
 
-                _stopController.waitForTimeoutOrDone(JMS_EXCEPTION_RECOVERY_TIME_MS);
+                Message msg = _receiveTimeoutMillis > 0 ? consumer.receive(_receiveTimeoutMillis) : consumer
+                                .receiveNoWait();
+                if (msg == null) {
+                    _receiveTimeoutCounter.incrementCount(1);
+                    if (_shouldCommitOnReceiveTimeout) {
+                        resourceManager.commit();
+                        hasTransaction = false;
+                    }
+                    if (_pollingDelayMillis > 0) {
+                        _logger.debug("No message, sleeping {} ms", _pollingDelayMillis);
+                        _stopController.waitForTimeoutOrDone(_pollingDelayMillis);
+                    }
+                    continue;
+                }
+
+                jmsId = msg.getJMSMessageID();
+                applicationId = msg.getStringProperty(JMS_PROPNAME_UNIQUE_MESSAGE_ID);
+
+                if (_verifyChecksum) {
+                    String md5 = msg.getStringProperty(MessageProvider.CHECKSUM_PROPERTY_NAME);
+                    if (md5 == null) {
+                        _logger.error("Message with JMS id {} has no checksum property!", jmsId);
+                    } else if (msg instanceof TextMessage) {
+                        verifyChecksum(new TextMessageData(((TextMessage) msg).getText()), jmsId, applicationId, md5);
+                    } else if (msg instanceof BytesMessage) {
+                        BytesMessage bytesMessage = (BytesMessage) msg;
+                        byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
+                        bytesMessage.readBytes(payload);
+                        verifyChecksum(new BytesMessageData(payload), jmsId, applicationId, md5);
+                    } else {
+                        _logger.error("Message {} neither BytesMessage nor TextMessage!", jmsId);
+                    }
+                }
+
+                if (shouldRollback()) {
+                    resourceManager.rollback();
+                    _logger.info("Rolled back {} {}", jmsId, applicationId);
+                } else {
+                    resourceManager.commit();
+                    _messageCounter.incrementCount(1);
+                    if (os != null) {
+                        logMessageIdsToFile(os, jmsId, applicationId);
+                    }
+                }
+                hasTransaction = false;
             }
-        } catch (Exception e) {
-            _logger.error("Dequeue worker failed!", e);
+        } catch (JMSException e) {
+            _logger.error("JMS error!", e);
+            if (jmsId != null) {
+                _logger.info("Rolled back {} {}", jmsId, applicationId);
+            }
+        } catch (RollbackException | HeuristicRollbackException e) {
+            _logger.error("Failed to commit!", e);
+            if (jmsId != null) {
+                _logger.info("Rolled back {} {}", jmsId, applicationId);
+            }
+        } catch (HeuristicMixedException e) {
+            _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
+            if (jmsId != null) {
+                _logger.error("Rolled back OR committed {} {}", jmsId, applicationId);
+            }
         } finally {
-            if (os != null) {
-                flushSafely(os);
-                closeSafely(os);
-            }
-            _logger.debug("Dequeue worker stopped");
+            jmsId = null;
+            applicationId = null;
         }
     }
 
@@ -205,7 +163,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
 
     private void logMessageIdsToFile(OutputStream os, String jmsMessageId, String messageId) throws IOException {
         long now = System.currentTimeMillis();
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(128);
         sb.append(now);
         sb.append('\t');
         sb.append(jmsMessageId);
@@ -213,23 +171,5 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> implements Runnab
         sb.append(messageId);
         sb.append('\n');
         os.write(sb.toString().getBytes());
-    }
-
-    private void closeSafely(OutputStream os) {
-        try {
-            os.close();
-        } catch (IOException e) {
-        }
-    }
-
-    private void flushSafely(OutputStream os) {
-        try {
-            os.flush();
-        } catch (IOException e) {
-        }
-    }
-
-    private boolean shouldRollback() {
-        return _rollbacksEnabled && _random.nextDouble() < _rollbackProbability;
     }
 }

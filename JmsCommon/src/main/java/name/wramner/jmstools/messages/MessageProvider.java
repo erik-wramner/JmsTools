@@ -25,6 +25,7 @@ import javax.jms.Session;
  * @author Erik Wramner
  */
 public interface MessageProvider {
+    static final String CHECKSUM_PROPERTY_NAME = "Payload-Checksum-MD5";
 
     Message createMessageWithPayloadAndChecksumProperty(Session session) throws JMSException;
 

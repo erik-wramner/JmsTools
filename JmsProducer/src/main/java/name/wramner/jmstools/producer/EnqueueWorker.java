@@ -15,14 +15,11 @@
  */
 package name.wramner.jmstools.producer;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 
 import javax.jms.JMSException;
@@ -31,14 +28,12 @@ import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 
+import name.wramner.jmstools.JmsClientWorker;
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.MessageProvider;
 import name.wramner.jmstools.rm.ResourceManager;
 import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An enqueue worker sends test messages provided by a {@link MessageProvider} until a {@link StopController} is
@@ -49,49 +44,32 @@ import org.slf4j.LoggerFactory;
  * @author Erik Wramner
  * @param <T> The configuration class.
  */
-public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnable {
-    private static final long JMS_EXCEPTION_RECOVERY_TIME_MS = 10000L;
-    private final Logger _logger = LoggerFactory.getLogger(getClass());
-    private final Random _random = new Random();
-    private final Counter _counter;
-    private final StopController _stopController;
+public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClientWorker<T> {
     private final MessageProvider _messageProvider;
     private final int _messagesPerBatch;
     private final long _sleepTimeMillisAfterBatch;
     private final boolean _idAndChecksumEnabled;
-    private final boolean _rollbacksEnabled;
-    private final double _rollbackProbability;
     private final double _delayedDeliveryProbability;
     private final int _delayedDeliverySeconds;
-    private final File _logFile;
     private final DelayedDeliveryAdapter _delayedDeliveryAdapter;
-    private final ResourceManagerFactory _resourceManagerFactory;
 
     /**
      * Constructor.
      * 
      * @param resourceManagerFactory The resource manager factory.
      * @param counter The counter for sent messages.
-     * @param stopController The stop controller
+     * @param stopController The stop controller.
      * @param messageProvider The message provider.
      * @param logFile The log file for sent messages or null.
      * @param config The configuration for other options.
      */
     public EnqueueWorker(ResourceManagerFactory resourceManagerFactory, Counter counter, StopController stopController,
                     MessageProvider messageProvider, File logFile, T config) {
-        _resourceManagerFactory = resourceManagerFactory;
-        _counter = counter;
-        _stopController = stopController;
+        super(resourceManagerFactory, counter, stopController, logFile, config);
         _messageProvider = messageProvider;
-        _logFile = logFile;
         _messagesPerBatch = config.getMessagesPerBatch();
         _sleepTimeMillisAfterBatch = config.getSleepTimeMillisAfterBatch();
         _idAndChecksumEnabled = config.isIdAndChecksumEnabled();
-        if (_rollbacksEnabled = config.getRollbackPercentage() != null) {
-            _rollbackProbability = config.getRollbackPercentage().doubleValue() / 100.0;
-        } else {
-            _rollbackProbability = 0.0;
-        }
         if (config.getDelayedDeliveryPercentage() != null) {
             _delayedDeliveryAdapter = config.createDelayedDeliveryAdapter();
             _delayedDeliveryProbability = config.getDelayedDeliveryPercentage().doubleValue() / 100.0;
@@ -104,98 +82,66 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
     }
 
     /**
-     * Send messages until done.
+     * Send messages until done as determined by the {@link StopController} or until an exception occurs.
+     * 
+     * @param os The output stream for logging or null.
+     * @throws IOException on I/O errors.
      */
-    @Override
-    public void run() {
-        _logger.debug("Enqueue worker starting...");
-        OutputStream os = null;
-        try {
-            if (_idAndChecksumEnabled && _logFile != null) {
-                os = new BufferedOutputStream(new FileOutputStream(_logFile));
-            }
-            List<String> messageIds = new ArrayList<>(_messagesPerBatch);
-
+    protected void processMessages(OutputStream os) throws IOException {
+        List<String> messageIds = new ArrayList<>(_messagesPerBatch);
+        try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
             while (_stopController.keepRunning()) {
-                try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
-                    while (_stopController.keepRunning()) {
-                        resourceManager.startTransaction();
-                        messageIds.clear();
+                resourceManager.startTransaction();
+                messageIds.clear();
 
-                        for (int i = 0; i < _messagesPerBatch; i++) {
-                            Message msg = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
-                                            .getSession());
-                            if (_idAndChecksumEnabled) {
-                                String id = UUID.randomUUID().toString();
-                                msg.setStringProperty("Unique-Message-Id", id);
-                                messageIds.add(id);
-                            }
-
-                            if (shouldDelayDelivery()) {
-                                _delayedDeliveryAdapter.setDelayProperty(msg, _delayedDeliverySeconds);
-                            }
-
-                            resourceManager.getMessageProducer().send(msg);
-                        }
-
-                        if (shouldRollback()) {
-                            resourceManager.rollback();
-                            if (_idAndChecksumEnabled) {
-                                _logger.info("Rolled back {}", messageIds);
-                            }
-                        } else {
-                            resourceManager.commit();
-                            _counter.incrementCount(_messagesPerBatch);
-                            if (os != null) {
-                                logMessageIdsToFile(os, messageIds);
-                            }
-                        }
-
-                        if (_sleepTimeMillisAfterBatch > 0) {
-                            _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
-                        }
+                for (int i = 0; i < _messagesPerBatch; i++) {
+                    Message msg = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
+                                    .getSession());
+                    if (_idAndChecksumEnabled) {
+                        String id = UUID.randomUUID().toString();
+                        msg.setStringProperty(JMS_PROPNAME_UNIQUE_MESSAGE_ID, id);
+                        messageIds.add(id);
                     }
-                } catch (JMSException e) {
-                    _logger.error("JMS error!", e);
-                    if (!messageIds.isEmpty()) {
+
+                    if (shouldDelayDelivery()) {
+                        _delayedDeliveryAdapter.setDelayProperty(msg, _delayedDeliverySeconds);
+                    }
+
+                    resourceManager.getMessageProducer().send(msg);
+                }
+
+                if (shouldRollback()) {
+                    resourceManager.rollback();
+                    if (_idAndChecksumEnabled) {
                         _logger.info("Rolled back {}", messageIds);
                     }
-                } catch (RollbackException | HeuristicRollbackException e) {
-                    _logger.error("Failed to commit!", e);
-                    if (!messageIds.isEmpty()) {
-                        _logger.info("Rolled back {}", messageIds);
-                    }
-                } catch (HeuristicMixedException e) {
-                    _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
-                    if (!messageIds.isEmpty()) {
-                        _logger.error("Rolled back OR committed {}", messageIds);
+                } else {
+                    resourceManager.commit();
+                    _messageCounter.incrementCount(_messagesPerBatch);
+                    if (os != null && _idAndChecksumEnabled) {
+                        logMessageIdsToFile(os, messageIds);
                     }
                 }
 
-                _stopController.waitForTimeoutOrDone(JMS_EXCEPTION_RECOVERY_TIME_MS);
+                if (_sleepTimeMillisAfterBatch > 0) {
+                    _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
+                }
             }
-        } catch (Exception e) {
-            _logger.error("Enqueue worker failed, aborting!", e);
-        } finally {
-            if (os != null) {
-                flushSafely(os);
-                closeSafely(os);
+        } catch (JMSException e) {
+            _logger.error("JMS error!", e);
+            if (!messageIds.isEmpty()) {
+                _logger.info("Rolled back {}", messageIds);
             }
-            _logger.debug("Enqueue worker stopped");
-        }
-    }
-
-    private void closeSafely(OutputStream os) {
-        try {
-            os.close();
-        } catch (IOException e) {
-        }
-    }
-
-    private void flushSafely(OutputStream os) {
-        try {
-            os.flush();
-        } catch (IOException e) {
+        } catch (RollbackException | HeuristicRollbackException e) {
+            _logger.error("Failed to commit!", e);
+            if (!messageIds.isEmpty()) {
+                _logger.info("Rolled back {}", messageIds);
+            }
+        } catch (HeuristicMixedException e) {
+            _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
+            if (!messageIds.isEmpty()) {
+                _logger.error("Rolled back OR committed {}", messageIds);
+            }
         }
     }
 
@@ -210,10 +156,6 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> implements Runnab
             os.write(sb.toString().getBytes());
             sb.setLength(0);
         }
-    }
-
-    private boolean shouldRollback() {
-        return _rollbacksEnabled && _random.nextDouble() < _rollbackProbability;
     }
 
     private boolean shouldDelayDelivery() {

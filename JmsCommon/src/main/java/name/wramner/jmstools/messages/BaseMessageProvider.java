@@ -38,7 +38,6 @@ import javax.jms.Session;
  * @param <T> The message data type.
  */
 public abstract class BaseMessageProvider<T extends ChecksummedMessageData> implements MessageProvider {
-    private static final String CHECKSUM_PROPERTY_NAME = "Payload-Checksum-MD5";
     protected final Random _random = new Random();
     private final List<T> _messageDataList = new ArrayList<>();
     private final boolean _ordered;
