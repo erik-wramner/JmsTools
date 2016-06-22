@@ -45,13 +45,13 @@ public class AqFlowController implements AutoCloseable, FlowController {
     private boolean _stop;
 
     public AqFlowController(String jdbcUrl, String jdbcUser, String jdbcPassword, int pauseAtDepth, int resumeAtDepth,
-                    String queueName, int pollingIntervalSeconds) {
+            String queueName, int pollingIntervalSeconds) {
         if (pauseAtDepth < 1) {
             throw new IllegalArgumentException("Pause depth must be > 0: " + pauseAtDepth);
         }
         if (resumeAtDepth >= pauseAtDepth) {
             throw new IllegalArgumentException("Resume depth (" + resumeAtDepth + ") must be less than pause depth ("
-                            + pauseAtDepth + ")");
+                    + pauseAtDepth + ")");
         }
         if (pollingIntervalSeconds < 1) {
             throw new IllegalArgumentException("Polling interval must be > 0: " + pollingIntervalSeconds);
@@ -100,7 +100,7 @@ public class AqFlowController implements AutoCloseable, FlowController {
     }
 
     private class QueueDepthPoller implements Runnable {
-        private static final String QUEUE_DEPTH_SQL = "select ready+waiting from v$aq where qid = (select qid from user_queues where name = ?)";
+        private static final String QUEUE_DEPTH_SQL_FMT = "select count(*) from %s where q_name = ? and state = 0";
         private static final int MAX_CONSEQUTIVE_DB_ERRORS = 10;
 
         @Override
@@ -109,12 +109,18 @@ public class AqFlowController implements AutoCloseable, FlowController {
             try {
                 Connection conn = null;
                 PreparedStatement stat = null;
+                String queueTableName = null;
                 boolean paused = false;
                 int errors = 0;
                 while (errors < MAX_CONSEQUTIVE_DB_ERRORS && waitForStopOrPollingDelay()) {
                     try {
                         conn = DriverManager.getConnection(_jdbcUrl, _jdbcUser, _jdbcPassword);
-                        stat = conn.prepareStatement(QUEUE_DEPTH_SQL);
+
+                        if (queueTableName == null) {
+                            queueTableName = determineQueueTableName(conn, _queueName);
+                        }
+
+                        stat = conn.prepareStatement(String.format(QUEUE_DEPTH_SQL_FMT, queueTableName));
                         stat.setString(1, _queueName.toUpperCase());
 
                         while (waitForStopOrPollingDelay()) {
@@ -148,6 +154,24 @@ public class AqFlowController implements AutoCloseable, FlowController {
                     _stop = true;
                 }
                 return !_stop;
+            }
+        }
+
+        private String determineQueueTableName(Connection conn, String queueName) throws SQLException {
+            PreparedStatement stat = null;
+            ResultSet rs = null;
+            try {
+                stat = conn.prepareStatement("select queue_table from user_queues where name = ?");
+                stat.setString(1, queueName.toUpperCase());
+                rs = stat.executeQuery();
+                if (rs.next()) {
+                    return rs.getString(1);
+                } else {
+                    throw new SQLException("Queue table for " + queueName + " not found!");
+                }
+            } finally {
+                closeSafely(rs);
+                closeSafely(stat);
             }
         }
 
