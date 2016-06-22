@@ -78,16 +78,23 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
      */
     protected Properties createAtomikosInitializationProperties(T config) throws UnknownHostException {
         Properties props = new Properties();
+        if (config.isTmLogDisabled()) {
+            props.setProperty("com.atomikos.icatch.enable_logging", "false");
+        } else {
+            props.setProperty("com.atomikos.icatch.checkpoint_interval", String.valueOf(TimeUnit.MILLISECONDS.convert(
+                    config.getCheckpointIntervalSeconds(), TimeUnit.SECONDS)));
+            props.setProperty("com.atomikos.icatch.recovery_delay", String.valueOf(TimeUnit.MILLISECONDS.convert(
+                    config.getRecoveryIntervalSeconds(), TimeUnit.SECONDS)));
+            if (config.getXaLogBaseDir() != null) {
+                props.setProperty("com.atomikos.icatch.log_base_dir", config.getXaLogBaseDir().getAbsolutePath());
+            }
+        }
         props.setProperty("com.atomikos.icatch.automatic_resource_registration", "true");
         props.setProperty("com.atomikos.icatch.max_actives", String.valueOf(config.getThreads() + 1));
         String jtaTimeoutMillis = String.valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(),
                 TimeUnit.SECONDS));
         props.setProperty("com.atomikos.icatch.max_timeout", jtaTimeoutMillis);
-        props.setProperty("com.atomikos.icatch.default_jta_timeout",
-                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(), TimeUnit.SECONDS)));
-        if (config.getXaLogBaseDir() != null) {
-            props.setProperty("com.atomikos.icatch.log_base_dir", config.getXaLogBaseDir().getAbsolutePath());
-        }
+        props.setProperty("com.atomikos.icatch.default_jta_timeout", jtaTimeoutMillis);
         props.setProperty("com.atomikos.icatch.tm_unique_name", config.getTmName() != null ? config.getTmName()
                 : createTmName());
         return props;

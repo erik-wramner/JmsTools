@@ -17,9 +17,7 @@ package name.wramner.jmstools;
 
 import java.io.File;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.XAConnectionFactory;
+import javax.jms.*;
 
 import name.wramner.jmstools.counter.AtomicCounter;
 import name.wramner.jmstools.counter.Counter;
@@ -33,6 +31,8 @@ import org.kohsuke.args4j.Option;
  */
 public abstract class JmsClientConfiguration {
     private static final int DEFAULT_JTA_TIMEOUT_SECONDS = 300;
+    private static final int DEFAULT_TM_CHECKPOINT_INTERVAL_SECONDS = 30;
+    private static final int DEFAULT_TM_RECOVERY_INTERVAL_SECONDS = 60;
 
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
     protected int _threads = 1;
@@ -61,11 +61,20 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-tmname", aliases = "--xa-tm-name", usage = "XA: The unique transaction manager name", depends = { "-xa" })
     protected String _tmName;
 
-    @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = { "-xa" })
+    @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = { "-xa" }, forbids = { "-notmlog" })
     protected File _xaLogBaseDir;
 
     @Option(name = "-jtatimeout", aliases = "--xa-jta-timeout-seconds", usage = "XA: The transaction timeout", depends = { "-xa" })
     protected int _jtaTimeoutSeconds = DEFAULT_JTA_TIMEOUT_SECONDS;
+
+    @Option(name = "-notmlog", aliases = "--xa-no-tm-log", usage = "XA: Disable transaction logs for raw performance", depends = { "-xa" }, forbids = { "-tmlogs" })
+    private boolean _noTmLog;
+
+    @Option(name = "-tmrecint", aliases = "--xa-tm-recovery-interval-seconds", usage = "XA: Time in seconds between two recovery scans", depends = { "-xa" })
+    private int _recoveryIntervalSeconds = DEFAULT_TM_RECOVERY_INTERVAL_SECONDS;
+
+    @Option(name = "-tmchkint", aliases = "--xa-tm-checkpoint-interval-seconds", usage = "XA: Time in seconds between two checkpoints for the transaction log", depends = { "-xa" })
+    private long _checkpointIntervalSeconds = DEFAULT_TM_CHECKPOINT_INTERVAL_SECONDS;
 
     /**
      * Get the number of threads to use.
@@ -132,6 +141,17 @@ public abstract class JmsClientConfiguration {
     }
 
     /**
+     * Check if XA transaction manager logs have been disabled. Without the logs there is little security in the XA
+     * protocol, but then this is a test tool. It will give a false impression of the actual real-world performance,
+     * though.
+     *
+     * @return true if the tm log should be disabled.
+     */
+    public boolean isTmLogDisabled() {
+        return _noTmLog;
+    }
+
+    /**
      * Get the unique transaction manager name for XA transactions. This is optional, but if the same client is started
      * multiple times on the same machine the default name will not be unique. In that case the option must be used.
      *
@@ -158,6 +178,25 @@ public abstract class JmsClientConfiguration {
      */
     public int getJtaTimeoutSeconds() {
         return _jtaTimeoutSeconds;
+    }
+
+    /**
+     * Get the time between two recovery scans in seconds.
+     *
+     * @return recovery interval.
+     */
+    public int getRecoveryIntervalSeconds() {
+        return _recoveryIntervalSeconds;
+    }
+
+    /**
+     * Get the time between two checkpoints for the transaction log in seconds. A checkpoint reduces the size of the
+     * transaction log, but imposes some overhead.
+     * 
+     * @return checkpoint interval.
+     */
+    public long getCheckpointIntervalSeconds() {
+        return _checkpointIntervalSeconds;
     }
 
     /**
