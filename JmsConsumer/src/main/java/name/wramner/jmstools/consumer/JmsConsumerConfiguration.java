@@ -34,7 +34,7 @@ import org.kohsuke.args4j.Option;
  * @author Erik Wramner
  */
 public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
-    private static final long DRAINED_TIMEOUT_MS = 500L;
+    private static final long DRAINED_TIMEOUT_MS = 1000L;
 
     @Option(name = "-drain", aliases = { "--until-drained" }, usage = "Run until all messages have been consumed")
     private boolean _untilDrained;
