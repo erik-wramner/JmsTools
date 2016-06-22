@@ -68,15 +68,19 @@ public class DrainedStopController extends BaseStopController {
         }
         synchronized (this) {
             if (_done) {
+                // Another thread got here first and we are done
                 return false;
             }
             if (now < _nextCheckTimeMillis.get()) {
+                // Another thread got here first and we are not done
                 return true;
             }
             if (_lastMessageCount == _messageCounter.getCount() && _lastTimeoutCount < _timeoutCounter.getCount()) {
+                _logger.debug("Queue drained (no messages and at least one miss since last check)");
                 _done = true;
                 return false;
             }
+            _logger.debug("Queue not drained, messages found or no timeouts since last check");
             _lastMessageCount = _messageCounter.getCount();
             _lastTimeoutCount = _timeoutCounter.getCount();
             _nextCheckTimeMillis.set(now + _millisToWait);

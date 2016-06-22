@@ -15,6 +15,9 @@
  */
 package name.wramner.jmstools.stopcontroller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Base class for stop controllers that handles the task of waking waiting threads up when the sub-class signals that it
  * is time to stop by returning false from {@link #shouldKeepRunning()}.
@@ -22,6 +25,7 @@ package name.wramner.jmstools.stopcontroller;
  * @author Erik Wramner
  */
 public abstract class BaseStopController implements StopController {
+    protected final Logger _logger = LoggerFactory.getLogger(getClass());
     private final Object _monitor = new Object();
 
     /**
@@ -32,6 +36,7 @@ public abstract class BaseStopController implements StopController {
         if (shouldKeepRunning()) {
             return true;
         }
+        _logger.debug("Stop controller done, releasing waiting threads");
         releaseWaitingThreads();
         return false;
     }
