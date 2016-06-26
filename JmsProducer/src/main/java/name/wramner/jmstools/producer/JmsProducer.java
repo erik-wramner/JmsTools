@@ -18,7 +18,9 @@ package name.wramner.jmstools.producer;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.jms.JMSException;
@@ -43,7 +45,7 @@ import com.atomikos.icatch.jta.UserTransactionManager;
  */
 public abstract class JmsProducer<T extends JmsProducerConfiguration> extends JmsClient<T> {
 
-    private static final String LOGFILE_BASE_NAME = "enqueued_messages_";
+    private static final String LOG_FILE_BASE_NAME = "enqueued_messages_";
 
     protected List<Thread> createThreadsWithWorkers(T config) throws JMSException {
         MessageProvider messageProvider;
@@ -66,12 +68,13 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
 
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter counter,
                     StopController stopController, MessageProvider messageProvider, T config) {
+        String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(new EnqueueWorker<T>(resourceManagerFactory, counter, stopController,
                             messageProvider, config.getLogDirectory() != null ? new File(config.getLogDirectory(),
-                                            LOGFILE_BASE_NAME + (i + 1) + ".log") : null, config), "EnqueueWorker-"
-                            + (i + 1)));
+                                            LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
+                            config), "EnqueueWorker-" + (i + 1)));
         }
         return threads;
     }

@@ -16,10 +16,6 @@
 package name.wramner.jmstools.producer;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 import javax.jms.JMSException;
@@ -82,80 +78,59 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
     }
 
     /**
-     * Send messages until done as determined by the {@link StopController} or until an exception occurs.
+     * Send messages until the stop controller is satisfied or until an error occurs.
      * 
-     * @param os The output stream for logging or null.
-     * @throws IOException on I/O errors.
+     * @param resourceManager The resource manager for transaction control.
+     * @throws JMSException on JMS errors.
+     * @throws RollbackException when the XA resource has been rolled back.
+     * @throws HeuristicRollbackException when the XA resource has been rolled back heuristically.
+     * @throws HeuristicMixedException when the XA resource has been rolled back OR committed.
      */
-    protected void processMessages(OutputStream os) throws IOException {
-        List<String> messageIds = new ArrayList<>(_messagesPerBatch);
-        try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
-            while (_stopController.keepRunning()) {
-                resourceManager.startTransaction();
-                messageIds.clear();
+    @Override
+    protected void processMessages(ResourceManager resourceManager) throws RollbackException, JMSException,
+                    HeuristicMixedException, HeuristicRollbackException {
+        while (_stopController.keepRunning()) {
+            resourceManager.startTransaction();
 
-                for (int i = 0; i < _messagesPerBatch; i++) {
-                    Message msg = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
-                                    .getSession());
-                    if (_idAndChecksumEnabled) {
-                        String id = UUID.randomUUID().toString();
-                        msg.setStringProperty(JMS_PROPNAME_UNIQUE_MESSAGE_ID, id);
-                        messageIds.add(id);
-                    }
+            for (int i = 0; i < _messagesPerBatch; i++) {
+                Message message = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
+                                .getSession());
 
-                    if (shouldDelayDelivery()) {
-                        _delayedDeliveryAdapter.setDelayProperty(msg, _delayedDeliverySeconds);
-                    }
-
-                    resourceManager.getMessageProducer().send(msg);
+                if (_idAndChecksumEnabled) {
+                    message.setStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME, UUID.randomUUID()
+                                    .toString());
                 }
 
-                if (shouldRollback()) {
-                    resourceManager.rollback();
-                    if (_idAndChecksumEnabled) {
-                        _logger.info("Rolled back {}", messageIds);
-                    }
-                } else {
-                    resourceManager.commit();
-                    _messageCounter.incrementCount(_messagesPerBatch);
-                    if (os != null && _idAndChecksumEnabled) {
-                        logMessageIdsToFile(os, messageIds);
-                    }
+                int delay = 0;
+                if (shouldDelayDelivery()) {
+                    _delayedDeliveryAdapter.setDelayProperty(message, _delayedDeliverySeconds);
+                    delay = _delayedDeliverySeconds;
                 }
 
-                if (_sleepTimeMillisAfterBatch > 0) {
-                    _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
+                if (messageLogEnabled()) {
+                    logMessage(message, delay);
                 }
+
+                resourceManager.getMessageProducer().send(message);
             }
-        } catch (JMSException e) {
-            _logger.error("JMS error!", e);
-            if (!messageIds.isEmpty()) {
-                _logger.info("Rolled back {}", messageIds);
-            }
-        } catch (RollbackException | HeuristicRollbackException e) {
-            _logger.error("Failed to commit!", e);
-            if (!messageIds.isEmpty()) {
-                _logger.info("Rolled back {}", messageIds);
-            }
-        } catch (HeuristicMixedException e) {
-            _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
-            if (!messageIds.isEmpty()) {
-                _logger.error("Rolled back OR committed {}", messageIds);
+
+            commitOrRollback(resourceManager, _messagesPerBatch);
+            if (_sleepTimeMillisAfterBatch > 0) {
+                _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
             }
         }
     }
 
-    private void logMessageIdsToFile(OutputStream os, List<String> messageIds) throws IOException {
-        long now = System.currentTimeMillis();
-        StringBuilder sb = new StringBuilder();
-        for (String id : messageIds) {
-            sb.append(now);
-            sb.append('\t');
-            sb.append(id);
-            sb.append('\n');
-            os.write(sb.toString().getBytes());
-            sb.setLength(0);
-        }
+    @Override
+    protected String[] getMessageLogHeaders() {
+        return new String[] { "ProducedTime", "ID", "Length", "DelaySeconds" };
+    }
+
+    private void logMessage(Message message, int delay) throws JMSException {
+        logMessage(String.valueOf(System.currentTimeMillis()),
+                        message.getStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME),
+                        String.valueOf(message.getIntProperty(MessageProvider.LENGTH_PROPERTY_NAME)),
+                        String.valueOf(delay));
     }
 
     private boolean shouldDelayDelivery() {

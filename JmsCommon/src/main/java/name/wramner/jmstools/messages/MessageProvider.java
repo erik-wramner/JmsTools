@@ -25,6 +25,7 @@ import javax.jms.Session;
  * @author Erik Wramner
  */
 public interface MessageProvider {
+    static final String UNIQUE_MESSAGE_ID_PROPERTY_NAME = "Unique-Message-Id";
     static final String CHECKSUM_PROPERTY_NAME = "Payload-Checksum-MD5";
     static final String LENGTH_PROPERTY_NAME = "Payload-Length";
 
@@ -36,5 +37,4 @@ public interface MessageProvider {
      * @throws JMSException on JMS errors.
      */
     Message createMessageWithPayloadAndChecksumProperty(Session session) throws JMSException;
-
 }

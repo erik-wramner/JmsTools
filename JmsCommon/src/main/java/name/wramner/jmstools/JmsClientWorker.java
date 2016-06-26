@@ -17,12 +17,22 @@ package name.wramner.jmstools;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
+import javax.jms.JMSException;
+import javax.transaction.HeuristicMixedException;
+import javax.transaction.HeuristicRollbackException;
+import javax.transaction.RollbackException;
+
 import name.wramner.jmstools.counter.Counter;
+import name.wramner.jmstools.rm.ResourceManager;
 import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
 
@@ -37,7 +47,6 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class JmsClientWorker<T extends JmsClientConfiguration> implements Runnable {
     private static final long JMS_EXCEPTION_RECOVERY_TIME_MS = 10000L;
-    protected static final String JMS_PROPNAME_UNIQUE_MESSAGE_ID = "Unique-Message-Id";
     protected final Logger _logger = LoggerFactory.getLogger(getClass());
     protected final Random _random = new Random();
     protected final ResourceManagerFactory _resourceManagerFactory;
@@ -46,6 +55,8 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
     private final File _logFile;
     private final boolean _rollbacksEnabled;
     private final double _rollbackProbability;
+    private final List<String[]> _pendingLogEntries;
+    private OutputStream _os;
 
     /**
      * Constructor.
@@ -67,6 +78,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
         } else {
             _rollbackProbability = 0.0;
         }
+        _pendingLogEntries = new ArrayList<String[]>();
     }
 
     /**
@@ -77,33 +89,104 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
     @Override
     public void run() {
         _logger.debug("Worker starting...");
-        OutputStream os = null;
         try {
-            if (_logFile != null) {
-                os = new BufferedOutputStream(new FileOutputStream(_logFile));
-            }
+            initMessageLogIfEnabled();
             while (_stopController.keepRunning()) {
-                processMessages(os);
-                recoverAfterException();
+                if (!processMessages()) {
+                    recoverAfterException();
+                }
             }
         } catch (Exception e) {
             _logger.error("Worker failed, aborting!", e);
         } finally {
-            if (os != null) {
-                flushSafely(os);
-                closeSafely(os);
-            }
+            cleanupMessageLog();
             _logger.debug("Worker stopped");
         }
     }
 
     /**
-     * Process messages and log to output stream unless it is null. Return when done or on exceptions.
+     * Check if messages should be logged.
      * 
-     * @param os The output stream.
-     * @throws IOException on I/O errors.
+     * @return true if logging is enabled.
      */
-    protected abstract void processMessages(OutputStream os) throws IOException;
+    protected boolean messageLogEnabled() {
+        return _logFile != null;
+    }
+
+    /**
+     * Process messages until done (success) or until an error occurs.
+     * 
+     * @return true on success.
+     */
+    private boolean processMessages() {
+        try (ResourceManager resourceManager = _resourceManagerFactory.createResourceManager()) {
+            processMessages(resourceManager);
+            return true;
+        } catch (JMSException e) {
+            _logger.error("JMS error!", e);
+            logPendingMessagesRolledBack();
+        } catch (RollbackException | HeuristicRollbackException e) {
+            _logger.error("Failed to commit!", e);
+            logPendingMessagesRolledBack();
+        } catch (HeuristicMixedException e) {
+            _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
+            logPendingMessagesInDoubt();
+        }
+        return false;
+    }
+
+    /**
+     * Process messages until the stop controller is satisfied or until an error occurs.
+     * 
+     * @param resourceManager The resource manager for transaction control.
+     * @throws JMSException on JMS errors.
+     * @throws RollbackException when the XA resource has been rolled back.
+     * @throws HeuristicRollbackException when the XA resource has been rolled back heuristically.
+     * @throws HeuristicMixedException when the XA resource has been rolled back OR committed.
+     */
+    protected abstract void processMessages(ResourceManager resourceManager) throws RollbackException, JMSException,
+                    HeuristicMixedException, HeuristicRollbackException;
+
+    /**
+     * Get header names for the detailed message log.
+     * 
+     * @return header names.
+     */
+    protected abstract String[] getMessageLogHeaders();
+
+    /**
+     * Commit or roll back depending on the configured roll back probability.
+     * 
+     * @param resourceManager the resource manager.
+     * @param messageCount The number of messages to commit/roll back.
+     * @throws JMSException on JMS errors.
+     * @throws RollbackException if a commit fails as the resource has been rolled back.
+     * @throws HeuristicRollbackException if a commit fails as the resource has been rolled back heuristically.
+     * @throws HeuristicMixedException if a commit fails as the resource has been rolled back OR committed
+     *         heuristically.
+     */
+    protected void commitOrRollback(ResourceManager resourceManager, int messageCount) throws JMSException,
+                    RollbackException, HeuristicMixedException, HeuristicRollbackException {
+        if (shouldRollback()) {
+            resourceManager.rollback();
+            logPendingMessagesRolledBack();
+        } else {
+            resourceManager.commit();
+            _messageCounter.incrementCount(messageCount);
+            logPendingMessagesCommitted();
+        }
+    }
+
+    /**
+     * Add fields for logging a consumed or produced message.
+     * 
+     * @param fields The fields to log.
+     */
+    protected void logMessage(String... fields) {
+        if (_os != null) {
+            _pendingLogEntries.add(fields);
+        }
+    }
 
     /**
      * Wait for a while in the face of an exception. The typical scenario is that a JMS exception has occurred, perhaps
@@ -119,8 +202,76 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
      * 
      * @return true to roll back.
      */
-    protected boolean shouldRollback() {
+    private boolean shouldRollback() {
         return _rollbacksEnabled && _random.nextDouble() < _rollbackProbability;
+    }
+
+    private void cleanupMessageLog() {
+        if (_os != null) {
+            flushSafely(_os);
+            closeSafely(_os);
+        }
+    }
+
+    private void initMessageLogIfEnabled() throws FileNotFoundException {
+        if (messageLogEnabled()) {
+            _os = new BufferedOutputStream(new FileOutputStream(_logFile));
+            logHeader();
+        }
+    }
+
+    private void logPendingMessagesCommitted() {
+        logPendingMessages("C");
+    }
+
+    private void logPendingMessagesRolledBack() {
+        logPendingMessages("R");
+    }
+
+    private void logPendingMessagesInDoubt() {
+        logPendingMessages("?");
+    }
+
+    private void logHeader() {
+        if (_os != null) {
+            StringBuilder sb = new StringBuilder(256);
+            sb.append("State");
+            sb.append('\t');
+            sb.append("CommitTime");
+            for (String header : getMessageLogHeaders()) {
+                sb.append('\t');
+                sb.append(header);
+            }
+            sb.append('\n');
+            write(sb);
+        }
+    }
+
+    private void logPendingMessages(String action) {
+        if (_os != null) {
+            StringBuilder sb = new StringBuilder(256);
+            String nowString = String.valueOf(System.currentTimeMillis());
+            for (String[] fields : _pendingLogEntries) {
+                sb.append(action);
+                sb.append('\t');
+                sb.append(nowString);
+                for (String field : fields) {
+                    sb.append('\t');
+                    sb.append(field);
+                }
+                sb.append('\n');
+            }
+            write(sb);
+            _pendingLogEntries.clear();
+        }
+    }
+
+    private void write(StringBuilder sb) {
+        try {
+            _os.write(sb.toString().getBytes());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static void closeSafely(OutputStream os) {

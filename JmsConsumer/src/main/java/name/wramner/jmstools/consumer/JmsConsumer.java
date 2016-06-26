@@ -16,7 +16,9 @@
 package name.wramner.jmstools.consumer;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.jms.JMSException;
@@ -61,12 +63,13 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
 
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
                     Counter receiveTimeoutCounter, StopController stopController, T config) {
+        String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(new DequeueWorker<T>(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
                             stopController, config.getLogDirectory() != null ? new File(config.getLogDirectory(),
-                                            LOG_FILE_BASE_NAME + (i + 1) + ".log") : null, config), "DequeueWorker-"
-                            + (i + 1)));
+                                            LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
+                            config), "DequeueWorker-" + (i + 1)));
         }
         return threads;
     }

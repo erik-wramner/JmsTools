@@ -34,7 +34,7 @@ public class TextMessageData extends ChecksummedMessageData {
      * @param data The message text.
      */
     public TextMessageData(String data) {
-        super(data.getBytes(TEXT_ENCODING));
+        super(textToBytes(data));
         _data = data;
     }
 
@@ -45,5 +45,15 @@ public class TextMessageData extends ChecksummedMessageData {
      */
     public String getData() {
         return _data;
+    }
+
+    /**
+     * Convert text to byte array.
+     * 
+     * @param data The text/data.
+     * @return byte array.
+     */
+    public static byte[] textToBytes(String data) {
+        return data.getBytes(TEXT_ENCODING);
     }
 }
