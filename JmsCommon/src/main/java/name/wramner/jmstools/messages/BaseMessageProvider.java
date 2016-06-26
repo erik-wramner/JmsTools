@@ -93,7 +93,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         for (int i = 0; i < numberOfMessages; i++) {
             _messageDataList.add(createRandomMessageData(size));
             if (size < maxSize) {
-                size += step;
+                size = Math.min(size + step,  maxSize);
             }
         }
         _ordered = false;

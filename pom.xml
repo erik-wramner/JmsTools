@@ -38,6 +38,7 @@
     <module>AqJmsProducer</module>
     <module>AmqJmsConsumer</module>
     <module>AmqJmsProducer</module>
+    <module>LogAnalyzer</module>
   </modules>
   <description>JMS tools for tests and benchmarks.</description>
   <build>
