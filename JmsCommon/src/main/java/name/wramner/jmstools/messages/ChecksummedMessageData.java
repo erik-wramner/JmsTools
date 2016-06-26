@@ -20,12 +20,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Base class for message data classes. Calculates and caches an MD5 checksum for the payload.
+ * Base class for message data classes. Calculates and caches an MD5 checksum for the payload as well as the payload
+ * size in bytes.
  * 
  * @author Erik Wramner
  */
 public class ChecksummedMessageData {
     private final String _checksum;
+    private final int _length;
 
     /**
      * Constructor.
@@ -34,6 +36,7 @@ public class ChecksummedMessageData {
      */
     public ChecksummedMessageData(byte[] data) {
         _checksum = calculateChecksum(data);
+        _length = data.length;
     }
 
     /**
@@ -43,6 +46,15 @@ public class ChecksummedMessageData {
      */
     public String getChecksum() {
         return _checksum;
+    }
+
+    /**
+     * Get length of message data in bytes.
+     * 
+     * @return length.
+     */
+    public int getLength() {
+        return _length;
     }
 
     /**

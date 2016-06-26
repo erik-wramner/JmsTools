@@ -144,6 +144,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         }
         Message msg = createMessageWithPayload(session, messageData);
         msg.setStringProperty(CHECKSUM_PROPERTY_NAME, messageData.getChecksum());
+        msg.setIntProperty(LENGTH_PROPERTY_NAME, messageData.getLength());
         return msg;
     }
 
