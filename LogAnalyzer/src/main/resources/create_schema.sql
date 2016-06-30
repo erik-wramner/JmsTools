@@ -1,4 +1,4 @@
-create table consumed_messages (
+create table if not exists consumed_messages (
   jms_id         varchar(256) not null,
   outcome        char(1) not null,
   outcome_time   timestamp not null,
@@ -7,9 +7,9 @@ create table consumed_messages (
   payload_size   integer null
 );
 
-create index ix_cm_app_id on consumed_messages (application_id);
+create index if not exists ix_cm_app_id on consumed_messages (application_id);
 
-create table produced_messages (
+create table if not exists produced_messages (
   application_id varchar(256) not null,
   outcome        char(1) not null,
   produced_time  timestamp not null,
@@ -64,4 +64,11 @@ create view if not exists produced_per_minute as
   from produced_messages
   where outcome = 'C'
   group by trunc(outcome_time, 'mi');
-  
+
+create view if not exists message_flight_time as
+  select p.application_id, p.produced_time, c.consumed_time,
+         datediff('millisecond', p.produced_time, c.consumed_time) flight_time_millis
+  from produced_messages p
+  join consumed_messages c on c.application_id = p.application_id
+  where p.outcome = 'C'
+    and c.outcome = 'C';
