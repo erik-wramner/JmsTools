@@ -20,10 +20,14 @@ create table if not exists produced_messages (
 );
 
 create view if not exists ghost_messages as
+  select cm.* from consumed_messages cm
+    join produced_messages pm on pm.application_id = cm.application_id
+    where pm.outcome = 'R';
+
+create view if not exists undead_messages as
   select * from consumed_messages cm
     where not exists (select * from produced_messages pm
-      where pm.application_id = cm.application_id
-        and pm.outcome = 'C')
+      where pm.application_id = cm.application_id)
       and cm.application_id is not null;
 
 create view if not exists alien_messages as
@@ -49,7 +53,7 @@ create view if not exists consumed_per_minute as
          avg(payload_size) average_size,
          min(payload_size) min_size,
          median(payload_size) median_size,
-         trunc(outcome_time, 'mi') period
+         trunc(outcome_time, 'mi') time_period
   from consumed_messages
   where outcome = 'C'
   group by trunc(outcome_time, 'mi');
@@ -60,10 +64,10 @@ create view if not exists produced_per_minute as
          avg(payload_size) average_size,
          min(payload_size) min_size,
          median(payload_size) median_size,
-         trunc(outcome_time, 'mi') period
+         trunc(outcome_time, 'mi') time_period
   from produced_messages
   where outcome = 'C'
-  group by trunc(outcome_time, 'mi');
+  group by trunc(outcome_time, 'mi');  
 
 create view if not exists message_flight_time as
   select p.application_id, p.produced_time, c.consumed_time,

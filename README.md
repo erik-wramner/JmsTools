@@ -37,6 +37,7 @@ Some of the options:
   batch and much more.
 * Client-side producer flow control for AQ.
 * XA transactions (two-phase commits).
+* A log analyzer that helps make sense of the recorded test results.
 
 Feel free to submit pull requests, bug reports or to ask for other improvements.
 
