@@ -32,6 +32,7 @@ import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 
 import name.wramner.jmstools.counter.Counter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
 import name.wramner.jmstools.rm.ResourceManager;
 import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
@@ -52,6 +53,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
     protected final ResourceManagerFactory _resourceManagerFactory;
     protected final StopController _stopController;
     protected final Counter _messageCounter;
+    protected final ObjectMessageAdapter _objectMessageAdapter;
     private final File _logFile;
     private final boolean _rollbacksEnabled;
     private final double _rollbackProbability;
@@ -79,6 +81,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
             _rollbackProbability = 0.0;
         }
         _pendingLogEntries = new ArrayList<String[]>();
+        _objectMessageAdapter = config.getObjectMessageAdapter();
     }
 
     /**

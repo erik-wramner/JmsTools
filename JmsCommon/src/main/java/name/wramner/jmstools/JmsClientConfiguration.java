@@ -17,12 +17,16 @@ package name.wramner.jmstools;
 
 import java.io.File;
 
-import javax.jms.*;
+import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
+import javax.jms.XAConnectionFactory;
+
+import org.kohsuke.args4j.Option;
 
 import name.wramner.jmstools.counter.AtomicCounter;
 import name.wramner.jmstools.counter.Counter;
-
-import org.kohsuke.args4j.Option;
+import name.wramner.jmstools.messages.DefaultObjectMessageAdapter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
 
 /**
  * Base class for JMS client configuration classes. Includes options common to both consumers and producers.
@@ -58,22 +62,28 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-xa", aliases = "--xa-transactions", usage = "Use XA (two-phase) transactions")
     protected boolean _useXa;
 
-    @Option(name = "-tmname", aliases = "--xa-tm-name", usage = "XA: The unique transaction manager name", depends = { "-xa" })
+    @Option(name = "-tmname", aliases = "--xa-tm-name", usage = "XA: The unique transaction manager name", depends = {
+            "-xa" })
     protected String _tmName;
 
-    @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = { "-xa" }, forbids = { "-notmlog" })
+    @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = {
+            "-xa" }, forbids = { "-notmlog" })
     protected File _xaLogBaseDir;
 
-    @Option(name = "-jtatimeout", aliases = "--xa-jta-timeout-seconds", usage = "XA: The transaction timeout", depends = { "-xa" })
+    @Option(name = "-jtatimeout", aliases = "--xa-jta-timeout-seconds", usage = "XA: The transaction timeout", depends = {
+            "-xa" })
     protected int _jtaTimeoutSeconds = DEFAULT_JTA_TIMEOUT_SECONDS;
 
-    @Option(name = "-notmlog", aliases = "--xa-no-tm-log", usage = "XA: Disable transaction logs for raw performance", depends = { "-xa" }, forbids = { "-tmlogs" })
+    @Option(name = "-notmlog", aliases = "--xa-no-tm-log", usage = "XA: Disable transaction logs for raw performance", depends = {
+            "-xa" }, forbids = { "-tmlogs" })
     private boolean _noTmLog;
 
-    @Option(name = "-tmrecint", aliases = "--xa-tm-recovery-interval-seconds", usage = "XA: Time in seconds between two recovery scans", depends = { "-xa" })
+    @Option(name = "-tmrecint", aliases = "--xa-tm-recovery-interval-seconds", usage = "XA: Time in seconds between two recovery scans", depends = {
+            "-xa" })
     private int _recoveryIntervalSeconds = DEFAULT_TM_RECOVERY_INTERVAL_SECONDS;
 
-    @Option(name = "-tmchkint", aliases = "--xa-tm-checkpoint-interval-seconds", usage = "XA: Time in seconds between two checkpoints for the transaction log", depends = { "-xa" })
+    @Option(name = "-tmchkint", aliases = "--xa-tm-checkpoint-interval-seconds", usage = "XA: Time in seconds between two checkpoints for the transaction log", depends = {
+            "-xa" })
     private long _checkpointIntervalSeconds = DEFAULT_TM_CHECKPOINT_INTERVAL_SECONDS;
 
     /**
@@ -214,4 +224,13 @@ public abstract class JmsClientConfiguration {
      * @throws JMSException on errors.
      */
     public abstract XAConnectionFactory createXAConnectionFactory() throws JMSException;
+
+    /**
+     * Get adapter for converting between raw bytes and object messages.
+     * 
+     * @return adapter.
+     */
+    public ObjectMessageAdapter getObjectMessageAdapter() {
+        return new DefaultObjectMessageAdapter();
+    }
 }

@@ -58,8 +58,8 @@ public class JmsResourceManager extends ResourceManager {
     @Override
     protected MessageConsumer createMessageConsumer() throws JMSException {
         Session session = getSession();
-        MessageConsumer consumer = session.createConsumer(getQueue(session, _queueName));
         _conn.start();
+        MessageConsumer consumer = session.createConsumer(getQueue(session, _queueName));
         return consumer;
     }
 

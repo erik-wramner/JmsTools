@@ -20,6 +20,8 @@ import javax.jms.JMSException;
 import javax.jms.XAConnectionFactory;
 
 import name.wramner.jmstools.consumer.AmqJmsConsumer.AmqConsumerConfiguration;
+import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQXAConnectionFactory;
@@ -80,6 +82,11 @@ public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
             } else {
                 return new ActiveMQXAConnectionFactory(_brokerUrl);
             }
+        }
+
+        @Override
+        public ObjectMessageAdapter getObjectMessageAdapter() {
+            return new AmqObjectMessageAdapter();
         }
     }
 }

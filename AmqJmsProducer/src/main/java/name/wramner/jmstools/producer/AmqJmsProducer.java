@@ -22,6 +22,8 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.XAConnectionFactory;
 
+import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
 import name.wramner.jmstools.producer.AmqJmsProducer.AmqProducerConfiguration;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
@@ -83,6 +85,7 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
             };
         }
 
+        @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             if (_userName != null && _password != null) {
                 return new ActiveMQConnectionFactory(_userName, _password, _brokerUrl);
@@ -91,12 +94,18 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
             }
         }
 
+        @Override
         public XAConnectionFactory createXAConnectionFactory() throws JMSException {
             if (_userName != null && _password != null) {
                 return new ActiveMQXAConnectionFactory(_userName, _password, _brokerUrl);
             } else {
                 return new ActiveMQXAConnectionFactory(_brokerUrl);
             }
+        }
+
+        @Override
+        public ObjectMessageAdapter getObjectMessageAdapter() {
+            return new AmqObjectMessageAdapter();
         }
     }
 }

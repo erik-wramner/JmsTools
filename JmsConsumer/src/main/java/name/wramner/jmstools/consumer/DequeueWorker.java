@@ -16,11 +16,14 @@
 package name.wramner.jmstools.consumer;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
+import javax.jms.ObjectMessage;
 import javax.jms.TextMessage;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
@@ -51,6 +54,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
     private final int _pollingDelayMillis;
     private final boolean _verifyChecksum;
     private final boolean _shouldCommitOnReceiveTimeout;
+    private final File _messageFileDirectory;
 
     /**
      * Constructor.
@@ -63,13 +67,14 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
      * @param config The configuration for other options.
      */
     public DequeueWorker(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
-                    Counter receiveTimeoutCounter, StopController stopController, File logFile, T config) {
+            Counter receiveTimeoutCounter, StopController stopController, File logFile, T config) {
         super(resourceManagerFactory, messageCounter, stopController, logFile, config);
         _receiveTimeoutCounter = receiveTimeoutCounter;
         _receiveTimeoutMillis = config.getReceiveTimeoutMillis();
         _pollingDelayMillis = config.getPollingDelayMillis();
         _verifyChecksum = config.shouldVerifyChecksum();
         _shouldCommitOnReceiveTimeout = config.shouldCommitOnReceiveTimeout();
+        _messageFileDirectory = config.getMessageFileDirectory();
     }
 
     /**
@@ -82,8 +87,8 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
      * @throws HeuristicMixedException when the XA resource has been rolled back OR committed.
      */
     @Override
-    protected void processMessages(ResourceManager resourceManager) throws JMSException, RollbackException,
-                    HeuristicMixedException, HeuristicRollbackException {
+    protected void processMessages(ResourceManager resourceManager)
+            throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException {
         MessageConsumer consumer = resourceManager.getMessageConsumer();
 
         boolean hasTransaction = false;
@@ -93,8 +98,8 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
                 hasTransaction = true;
             }
 
-            Message msg = _receiveTimeoutMillis > 0 ? consumer.receive(_receiveTimeoutMillis) : consumer
-                            .receiveNoWait();
+            Message msg = _receiveTimeoutMillis > 0 ? consumer.receive(_receiveTimeoutMillis)
+                    : consumer.receiveNoWait();
             if (msg == null) {
                 _receiveTimeoutCounter.incrementCount(1);
                 if (_shouldCommitOnReceiveTimeout) {
@@ -116,18 +121,21 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
                 String md5 = msg.getStringProperty(MessageProvider.CHECKSUM_PROPERTY_NAME);
                 if (md5 == null) {
                     _logger.error("Message with JMS id {} has no checksum property!", jmsId);
-                } else if (msg instanceof TextMessage) {
+                }
+                else if (msg instanceof TextMessage) {
                     TextMessageData md = new TextMessageData(((TextMessage) msg).getText());
                     length = md.getLength();
                     verifyChecksum(md, jmsId, applicationId, md5);
-                } else if (msg instanceof BytesMessage) {
+                }
+                else if (msg instanceof BytesMessage) {
                     BytesMessage bytesMessage = (BytesMessage) msg;
                     byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
                     bytesMessage.readBytes(payload);
                     BytesMessageData md = new BytesMessageData(payload);
                     length = md.getLength();
                     verifyChecksum(md, jmsId, applicationId, md5);
-                } else {
+                }
+                else {
                     _logger.error("Message {} neither BytesMessage nor TextMessage!", jmsId);
                 }
             }
@@ -135,23 +143,58 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
             if (messageLogEnabled()) {
                 logMessage(msg, jmsId, applicationId, length);
             }
+            if (_messageFileDirectory != null) {
+                saveMessage(msg);
+            }
             commitOrRollback(resourceManager, 1);
             hasTransaction = false;
         }
+    }
+
+    private void saveMessage(Message msg) throws JMSException {
+        try (FileOutputStream fos = new FileOutputStream(
+            new File(_messageFileDirectory, generateUniqueFileName(msg)))) {
+            byte[] payload;
+            if (msg instanceof TextMessage) {
+                payload = TextMessageData.textToBytes(((TextMessage) msg).getText());
+            }
+            else if (msg instanceof BytesMessage) {
+                BytesMessage bytesMessage = (BytesMessage) msg;
+                payload = new byte[(int) bytesMessage.getBodyLength()];
+                bytesMessage.readBytes(payload);
+            }
+            else if (msg instanceof ObjectMessage) {
+                payload = _objectMessageAdapter.getObjectPayload((ObjectMessage) msg);
+            }
+            else {
+                _logger.warn("Can't save payload for {}, unsupported type!", msg.getJMSMessageID());
+                payload = new byte[0];
+            }
+            fos.write(payload);
+            fos.flush();
+        }
+        catch (IOException e) {
+            _logger.error("Failed to save message!", e);
+        }
+    }
+
+    private String generateUniqueFileName(Message msg) throws JMSException {
+        return msg.getJMSMessageID().replace(":", "_");
     }
 
     private void logMessage(Message msg, String jmsId, String applicationId, Integer length) throws JMSException {
         if (length == null) {
             length = computeMessageLength(msg, length);
         }
-        logMessage(String.valueOf(System.currentTimeMillis()), jmsId, applicationId, length != null ? length.toString()
-                        : null);
+        logMessage(String.valueOf(System.currentTimeMillis()), jmsId, applicationId,
+            length != null ? length.toString() : null);
     }
 
     private Integer computeMessageLength(Message msg, Integer length) throws JMSException {
         if (msg instanceof BytesMessage) {
             length = (int) ((BytesMessage) msg).getBodyLength();
-        } else if (msg instanceof TextMessage) {
+        }
+        else if (msg instanceof TextMessage) {
             length = TextMessageData.textToBytes(((TextMessage) msg).getText()).length;
         }
         return length;
@@ -160,7 +203,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
     private void verifyChecksum(ChecksummedMessageData md, String jmsId, String applicationId, String expectedMd5) {
         if (!md.getChecksum().equals(expectedMd5)) {
             _logger.error("Wrong checksum {} for message with JMS id {} and id {}, expected {}", md.getChecksum(),
-                            jmsId, applicationId, expectedMd5);
+                jmsId, applicationId, expectedMd5);
         }
     }
 

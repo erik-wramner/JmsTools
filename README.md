@@ -29,7 +29,7 @@ to enqueue/dequeue without processing). Some of the options:
 * Prepared messages from a directory or random messages with a minimum and maximum size.
 * Outliers (large messages with a certain probability).
 * Delayed/scheduled messages (where supported).
-* Text and byte messages.
+* Text and byte messages and partial support for object messages.
 * Duration-based tests.
 * Count-based tests.
 * Configurable receive timeouts, polling delays, batch sizes, sleep times after each

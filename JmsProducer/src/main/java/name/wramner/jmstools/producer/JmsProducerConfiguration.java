@@ -18,18 +18,19 @@ package name.wramner.jmstools.producer;
 import java.io.File;
 import java.io.IOException;
 
+import org.kohsuke.args4j.Option;
+
 import name.wramner.jmstools.JmsClientConfiguration;
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.BytesMessageProvider;
 import name.wramner.jmstools.messages.MessageProvider;
+import name.wramner.jmstools.messages.ObjectMessageProvider;
 import name.wramner.jmstools.messages.TextMessageProvider;
 import name.wramner.jmstools.stopcontroller.CountStopController;
 import name.wramner.jmstools.stopcontroller.DurationOrCountStopController;
 import name.wramner.jmstools.stopcontroller.DurationStopController;
 import name.wramner.jmstools.stopcontroller.RunForeverStopController;
 import name.wramner.jmstools.stopcontroller.StopController;
-
-import org.kohsuke.args4j.Option;
 
 /**
  * JMS producer configuration.
@@ -44,7 +45,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     private static final String DEFAULT_OUTLIER_SIZE = "16M";
 
     private static enum MessageType {
-        TEXT, BYTES
+        TEXT, BYTES, OBJECT
     };
 
     @Option(name = "-min", aliases = { "--min-message-size" }, usage = "Minimum message size", forbids = { "-dir" })
@@ -53,18 +54,20 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     @Option(name = "-max", aliases = { "--max-message-size" }, usage = "Maximum message size", forbids = { "-dir" })
     protected Integer _maxMessageSize;
 
-    @Option(name = "-n", aliases = { "--number-of-messages" }, usage = "Number of distinct messages to generate", forbids = { "-dir" })
+    @Option(name = "-n", aliases = {
+            "--number-of-messages" }, usage = "Number of distinct messages to generate", forbids = { "-dir" })
     protected int _numberOfMessages = DEFAULT_NUMBER_OF_MESSAGES;
 
     @Option(name = "-dir", aliases = "--message-file-directory", usage = "Directory with files to submit as messages", forbids = {
-                    "-min", "-max", "-n", "-outliers", "-outliersize" })
+            "-min", "-max", "-n", "-outliers", "-outliersize" })
     protected File _messageFileDirectory;
 
-    @Option(name = "-ordered", aliases = "--ordered-delivery", usage = "Send messages in order (works best with one thread)", depends = { "-dir" })
+    @Option(name = "-ordered", aliases = "--ordered-delivery", usage = "Send messages in order (works best with one thread)", depends = {
+            "-dir" })
     protected boolean _ordered = false;
 
     @Option(name = "-enc", aliases = "--message-file-encoding", usage = "Character encoding for message files,"
-                    + " relevant for text messages only")
+            + " relevant for text messages only")
     protected String _messageFileEncoding = DEFAULT_FILE_ENCODING;
 
     @Option(name = "-id", aliases = "--id-and-checksum", usage = "Set unique id and checksum properties for integrity check")
@@ -79,11 +82,12 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     @Option(name = "-type", aliases = "--message-type", usage = "JMS message type")
     protected JmsProducerConfiguration.MessageType _messageType = MessageType.BYTES;
 
-    @Option(name = "-outliers", aliases = "--outlier-percentage", usage = "Percentage of very large messages, decimals supported", forbids = { "-dir" })
+    @Option(name = "-outliers", aliases = "--outlier-percentage", usage = "Percentage of very large messages, decimals supported", forbids = {
+            "-dir" })
     protected Double _outlierPercentage;
 
     @Option(name = "-outliersize", aliases = "--outlier-size", usage = "Size of very large messages expressed as bytes (numeric) or "
-                    + "with k, M or G suffixes.", forbids = { "-dir" })
+            + "with k, M or G suffixes.", forbids = { "-dir" })
     protected String _outlierSize = DEFAULT_OUTLIER_SIZE;
 
     @Option(name = "-delay-pct", aliases = "--delayed-delivery-percentage", usage = "Percentage of delayed (scheduled) messages")
@@ -119,11 +123,14 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         if (_outlierSize != null) {
             if (_outlierSize.endsWith("G")) {
                 return 1024 * 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else if (_outlierSize.endsWith("M")) {
+            }
+            else if (_outlierSize.endsWith("M")) {
                 return 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else if (_outlierSize.endsWith("k")) {
+            }
+            else if (_outlierSize.endsWith("k")) {
                 return 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else {
+            }
+            else {
                 return Integer.parseInt(_outlierSize);
             }
         }
@@ -184,12 +191,15 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     public StopController createStopController(Counter counter) {
         if (_durationMinutes != null && _stopAfterMessages != null) {
             return new DurationOrCountStopController(_stopAfterMessages.intValue(), counter,
-                            _durationMinutes.intValue());
-        } else if (_durationMinutes != null) {
+                _durationMinutes.intValue());
+        }
+        else if (_durationMinutes != null) {
             return new DurationStopController(_durationMinutes.intValue());
-        } else if (_stopAfterMessages != null) {
+        }
+        else if (_stopAfterMessages != null) {
             return new CountStopController(_stopAfterMessages.intValue(), counter);
-        } else {
+        }
+        else {
             return new RunForeverStopController();
         }
     }
@@ -201,23 +211,27 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
      * @throws IOException on failure to read prepared messages.
      */
     public MessageProvider createMessageProvider() throws IOException {
-        boolean messageTypeText = _messageType == MessageType.TEXT;
         if (_messageFileDirectory != null) {
             String encoding = _messageFileEncoding != null ? _messageFileEncoding : DEFAULT_FILE_ENCODING;
-            return messageTypeText ? new TextMessageProvider(_messageFileDirectory,
-                            _messageFileEncoding != null ? _messageFileEncoding : DEFAULT_FILE_ENCODING, _ordered)
-                            : new BytesMessageProvider(_messageFileDirectory, encoding, _ordered);
-        } else if (_minMessageSize != null || _maxMessageSize != null) {
+            switch (_messageType) {
+            case TEXT:
+                return new TextMessageProvider(_messageFileDirectory, encoding, _ordered);
+            case BYTES:
+                return new BytesMessageProvider(_messageFileDirectory, encoding, _ordered);
+            case OBJECT:
+                return new ObjectMessageProvider(_messageFileDirectory, getObjectMessageAdapter());
+            default:
+                throw new IllegalStateException("Message type " + _messageType + " not handled!");
+            }
+        }
+        else if (_minMessageSize != null || _maxMessageSize != null) {
             int minSize = getMinMessageSize();
             int maxSize = getMaxMessageSize();
             int count = Math.min(Math.max(maxSize - minSize, 1), _numberOfMessages);
-            return messageTypeText ? new TextMessageProvider(minSize, maxSize, count, _outlierPercentage,
-                            getOutlierSizeInBytes()) : new BytesMessageProvider(minSize, maxSize, count,
-                            _outlierPercentage, getOutlierSizeInBytes());
-        } else {
-            return messageTypeText ? new TextMessageProvider(DEFAULT_MIN_SIZE, DEFAULT_MAX_SIZE, _numberOfMessages,
-                            _outlierPercentage, getOutlierSizeInBytes()) : new BytesMessageProvider(DEFAULT_MIN_SIZE,
-                            DEFAULT_MAX_SIZE, _numberOfMessages, _outlierPercentage, getOutlierSizeInBytes());
+            return createMessageProviderForRandomData(minSize, maxSize, count);
+        }
+        else {
+            return createMessageProviderForRandomData(DEFAULT_MIN_SIZE, DEFAULT_MAX_SIZE, _numberOfMessages);
         }
     }
 
@@ -229,5 +243,18 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
      */
     public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
         return null;
+    }
+
+    private MessageProvider createMessageProviderForRandomData(int minSize, int maxSize, int count) {
+        switch (_messageType) {
+        case TEXT:
+            return new TextMessageProvider(minSize, maxSize, count, _outlierPercentage, getOutlierSizeInBytes());
+        case BYTES:
+            return new BytesMessageProvider(minSize, maxSize, count, _outlierPercentage, getOutlierSizeInBytes());
+        case OBJECT:
+            throw new IllegalStateException("Object messages with random data not supported!");
+        default:
+            throw new IllegalStateException("Message type " + _messageType + " not handled!");
+        }
     }
 }
