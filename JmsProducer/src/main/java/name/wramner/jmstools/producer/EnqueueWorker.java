@@ -107,11 +107,11 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
                     delay = _delayedDeliverySeconds;
                 }
 
+                resourceManager.getMessageProducer().send(message);
+
                 if (messageLogEnabled()) {
                     logMessage(message, delay);
                 }
-
-                resourceManager.getMessageProducer().send(message);
             }
 
             commitOrRollback(resourceManager, _messagesPerBatch);
@@ -123,14 +123,15 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
 
     @Override
     protected String[] getMessageLogHeaders() {
-        return new String[] { "ProducedTime", "ID", "Length", "DelaySeconds" };
+        return new String[] { "ProducedTime", "ID", "Length", "DelaySeconds", "JMSID" };
     }
 
     private void logMessage(Message message, int delay) throws JMSException {
         logMessage(String.valueOf(System.currentTimeMillis()),
                         message.getStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME),
                         String.valueOf(message.getIntProperty(MessageProvider.LENGTH_PROPERTY_NAME)),
-                        String.valueOf(delay));
+                        String.valueOf(delay),
+                        message.getJMSMessageID());
     }
 
     private boolean shouldDelayDelivery() {
