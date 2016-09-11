@@ -377,7 +377,12 @@ public class LogAnalyzer {
         CmdLineParser parser = new CmdLineParser(config);
         try {
             parser.parseArgument(args);
-            return true;
+            if(config.getRemainingArguments() == null || config.getRemainingArguments().isEmpty()) {
+                printUsage(parser);
+                return false;
+            } else {
+                return true;
+            }
         } catch (CmdLineException e) {
             printUsage(parser);
             System.out.println("Error: " + e.getMessage());
@@ -391,7 +396,7 @@ public class LogAnalyzer {
      * @param parser The parser.
      */
     private void printUsage(CmdLineParser parser) {
-        System.out.println("Usage: java " + getClass().getName() + " [options]");
+        System.out.println("Usage: java " + getClass().getName() + " [options] [files/directories]");
         System.out.println();
         System.out.println("Where the options are:");
         parser.printUsage(System.out);
