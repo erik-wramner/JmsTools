@@ -34,7 +34,7 @@ import name.wramner.jmstools.stopcontroller.StopController;
 
 /**
  * JMS producer configuration.
- * 
+ *
  * @author Erik Wramner
  */
 public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
@@ -98,7 +98,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the percentage of delayed messages.
-     * 
+     *
      * @return percentage or null for none.
      */
     public Double getDelayedDeliveryPercentage() {
@@ -107,7 +107,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the delay time in seconds for delayed messages.
-     * 
+     *
      * @return delay time.
      */
     public int getDelayedDeliverySeconds() {
@@ -116,7 +116,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the outlier size in bytes. An outlier is a message much larger than the normal message size.
-     * 
+     *
      * @return outlier size in bytes.
      */
     public Integer getOutlierSizeInBytes() {
@@ -139,7 +139,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the sleep time in milliseconds after a batch (a commit).
-     * 
+     *
      * @return sleep time.
      */
     public int getSleepTimeMillisAfterBatch() {
@@ -148,7 +148,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the minimum message size for random messages.
-     * 
+     *
      * @return size.
      */
     private Integer getMinMessageSize() {
@@ -157,7 +157,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the maximum message size for random messages.
-     * 
+     *
      * @return size.
      */
     private Integer getMaxMessageSize() {
@@ -166,7 +166,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Check if id and checksum is enabled. If so every message is enriched with a unique GUID and a MD5 checksum.
-     * 
+     *
      * @return true if messages should be stamped with id and checksum.
      */
     public boolean isIdAndChecksumEnabled() {
@@ -175,7 +175,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Get the number of messages to send per commit.
-     * 
+     *
      * @return number of messages per commit (batch size).
      */
     public int getMessagesPerBatch() {
@@ -184,7 +184,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Create a stop controller based on the configuration options.
-     * 
+     *
      * @param counter The message counter.
      * @return stop controller.
      */
@@ -199,6 +199,20 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         else if (_stopAfterMessages != null) {
             return new CountStopController(_stopAfterMessages.intValue(), counter);
         }
+        else if (_messageFileDirectory != null && _ordered) {
+            int numberOfFiles = 0;
+            if (_messageFileDirectory.isDirectory()) {
+                for (File file : _messageFileDirectory.listFiles()) {
+                    if (file.isFile() && !file.getName().endsWith(".headers")) {
+                        numberOfFiles++;
+                    }
+                }
+            }
+            else {
+                numberOfFiles = 1;
+            }
+            return new CountStopController(numberOfFiles, counter);
+        }
         else {
             return new RunForeverStopController();
         }
@@ -206,7 +220,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
 
     /**
      * Create a message provider based on the configuration options.
-     * 
+     *
      * @return message provider.
      * @throws IOException on failure to read prepared messages.
      */
@@ -238,7 +252,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     /**
      * Create an adapter for delayed message delivery. This is provider specific, so at this level null will always be
      * returned.
-     * 
+     *
      * @return null.
      */
     public DelayedDeliveryAdapter createDelayedDeliveryAdapter() {
