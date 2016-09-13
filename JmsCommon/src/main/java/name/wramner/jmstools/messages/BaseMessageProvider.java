@@ -16,13 +16,19 @@
 package name.wramner.jmstools.messages;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.jms.JMSException;
@@ -31,8 +37,10 @@ import javax.jms.Session;
 
 /**
  * A message provider initializes messages that can be sent. Messages can be read from a file/directory or generated
- * randomly.
- * 
+ * randomly. When messages are read from the file system, prepared JMS headers may be read as well. A file that ends
+ * with &quot;.payload&quot; is assumed to correspond to a file with the same base name and the suffix
+ * &quot;.headers&quot;.
+ *
  * @author Erik Wramner
  *
  * @param <T> The message data type.
@@ -40,6 +48,7 @@ import javax.jms.Session;
 public abstract class BaseMessageProvider<T extends ChecksummedMessageData> implements MessageProvider {
     protected final Random _random = new Random();
     private final List<T> _messageDataList = new ArrayList<>();
+    private final List<Map<String, String>> _messageHeaderList = new ArrayList<>();
     private final boolean _ordered;
     private final AtomicInteger _messageIndex = new AtomicInteger(0);
     private final Double _outlierPercentage;
@@ -47,7 +56,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     /**
      * Constructor for prepared messages.
-     * 
+     *
      * @param fileOrDirectory The single file or the directory containing files.
      * @param encoding The character encoding.
      * @param ordered The flag to send messages in order or randomly.
@@ -59,12 +68,12 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
             Arrays.sort(files);
             for (File f : files) {
                 if (f.isFile()) {
-                    _messageDataList.add(createMessageData(Files.readAllBytes(f.toPath()), Charset.forName(encoding)));
+                    readPayloadAndHeaders(f, Charset.forName(encoding));
                 }
             }
-        } else {
-            _messageDataList.add(createMessageData(Files.readAllBytes(fileOrDirectory.toPath()),
-                            Charset.forName(encoding)));
+        }
+        else {
+            readPayloadAndHeaders(fileOrDirectory, Charset.forName(encoding));
         }
         _ordered = ordered;
         _outlierPercentage = null;
@@ -73,7 +82,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     /**
      * Constructor for messages with a given size range.
-     * 
+     *
      * @param minSize The minimum size.
      * @param maxSize The maximum size.
      * @param numberOfMessages The number of messages to generate.
@@ -81,7 +90,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
      * @param outlierSize The outlier size.
      */
     protected BaseMessageProvider(int minSize, int maxSize, int numberOfMessages, Double outlierPercentage,
-                    int outlierSize) {
+            int outlierSize) {
         if (maxSize < minSize) {
             throw new IllegalArgumentException("Max size must be >= min size");
         }
@@ -91,9 +100,10 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         }
         int size = minSize;
         for (int i = 0; i < numberOfMessages; i++) {
+            _messageHeaderList.add(Collections.emptyMap());
             _messageDataList.add(createRandomMessageData(size));
             if (size < maxSize) {
-                size = Math.min(size + step,  maxSize);
+                size = Math.min(size + step, maxSize);
             }
         }
         _ordered = false;
@@ -103,7 +113,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     /**
      * Create random message data with a given size.
-     * 
+     *
      * @param size The number of bytes or characters for the message.
      * @return message data.
      */
@@ -111,7 +121,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     /**
      * Create message data for a byte array using a given encoding. The encoding is only relevant for text messages.
-     * 
+     *
      * @param bytes The bytes.
      * @param characterEncoding The encoding for text messages.
      * @return message data.
@@ -120,7 +130,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     /**
      * Create a JMS message for the specified session with prepared payload.
-     * 
+     *
      * @param session The session.
      * @return message.
      * @throws JMSException on errors.
@@ -128,8 +138,9 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     protected abstract Message createMessageWithPayload(Session session, T messageData) throws JMSException;
 
     /**
-     * Create a JMS message for the specified session with prepared payload and a checksum.
-     * 
+     * Create a JMS message for the specified session with a prepared payload and a checksum and
+     * possibly prepared JMS properties.
+     *
      * @param session The session.
      * @return message.
      * @throws JMSException on errors.
@@ -137,26 +148,57 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     @Override
     public Message createMessageWithPayloadAndChecksumProperty(Session session) throws JMSException {
         T messageData;
+        Map<String, String> headers;
         if (_outlierPercentage != null && _random.nextDouble() < (_outlierPercentage.doubleValue() / 100.0)) {
             messageData = createRandomMessageData(_outlierSize);
-        } else {
-            messageData = getNextMessageData();
+            headers = Collections.emptyMap();
+        }
+        else {
+            int index = getNextMessageDataIndex();
+            messageData = _messageDataList.get(index);
+            headers = _messageHeaderList.get(index);
         }
         Message msg = createMessageWithPayload(session, messageData);
+        for (Entry<String, String> entry : headers.entrySet()) {
+            msg.setStringProperty(entry.getKey(), entry.getValue());
+        }
         msg.setStringProperty(CHECKSUM_PROPERTY_NAME, messageData.getChecksum());
         msg.setIntProperty(LENGTH_PROPERTY_NAME, messageData.getLength());
         return msg;
     }
 
-    /**
-     * Get data for the next message, either in order (when using prepared files, most useful with a single thread) or
-     * randomly.
-     * 
-     * @return message data.
-     */
-    public T getNextMessageData() {
+    private int getNextMessageDataIndex() {
         int numberOfMessages = _messageDataList.size();
-        int index = _ordered ? _messageIndex.incrementAndGet() % numberOfMessages : _random.nextInt(numberOfMessages);
-        return _messageDataList.get(index);
+        return _ordered ? _messageIndex.incrementAndGet() % numberOfMessages : _random.nextInt(numberOfMessages);
+    }
+
+    private void readPayloadAndHeaders(File file, Charset encoding) throws IOException {
+        String name = file.getName();
+        if (name.endsWith(".payload")) {
+            _messageDataList.add(createMessageData(Files.readAllBytes(file.toPath()), encoding));
+            _messageHeaderList.add(readHeaders(
+                new File(file.getParentFile(), name.substring(0, name.length() - ".payload".length()) + ".headers")));
+        }
+        else if (!name.endsWith(".headers")) {
+            _messageDataList.add(createMessageData(Files.readAllBytes(file.toPath()), encoding));
+            _messageHeaderList.add(Collections.emptyMap());
+        }
+    }
+
+    private Map<String, String> readHeaders(File file) throws IOException {
+        if (file.isFile()) {
+            try (FileInputStream is = new FileInputStream(file)) {
+                Properties props = new Properties();
+                props.load(is);
+                Map<String, String> headerMap = new TreeMap<>();
+                for (Object key : props.keySet()) {
+                    headerMap.put((String) key, props.getProperty((String) key));
+                }
+                return headerMap;
+            }
+        }
+        else {
+            return Collections.emptyMap();
+        }
     }
 }

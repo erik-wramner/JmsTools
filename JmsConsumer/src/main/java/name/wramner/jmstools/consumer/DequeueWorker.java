@@ -18,6 +18,8 @@ package name.wramner.jmstools.consumer;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Enumeration;
+import java.util.Properties;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
@@ -45,7 +47,7 @@ import name.wramner.jmstools.stopcontroller.StopController;
  * checksums for messages in order to verify that they have been transferred without alterations. Unique message
  * identities can be logged to file in order to verify that there are no lost or duplicate messages or ghost messages
  * (submitted but then rolled back by a producer).
- * 
+ *
  * @author Erik Wramner
  */
 public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClientWorker<T> {
@@ -58,7 +60,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
 
     /**
      * Constructor.
-     * 
+     *
      * @param resourceManagerFactory The resource manager factory.
      * @param messageCounter The message counter for dequeued messages.
      * @param receiveTimeoutCounter The counter for receive timeouts.
@@ -79,7 +81,7 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
 
     /**
      * Receive messages until the stop controller is satisfied or until an error occurs.
-     * 
+     *
      * @param resourceManager The resource manager for transaction control.
      * @throws JMSException on JMS errors.
      * @throws RollbackException when the XA resource has been rolled back.
@@ -152,8 +154,30 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
     }
 
     private void saveMessage(Message msg) throws JMSException {
-        try (FileOutputStream fos = new FileOutputStream(
-            new File(_messageFileDirectory, generateUniqueFileName(msg)))) {
+        String baseName = generateUniqueFileName(msg);
+        try {
+            saveMessagePayload(msg, baseName);
+            saveMessageHeaders(msg, baseName);
+        }
+        catch (IOException e) {
+            _logger.error("Failed to save message!", e);
+        }
+    }
+
+    private void saveMessageHeaders(Message msg, String baseName) throws JMSException, IOException {
+        try (FileOutputStream fos = new FileOutputStream(new File(_messageFileDirectory, baseName + ".headers"))) {
+            Properties props = new Properties();
+            for (Enumeration<?> propertyNames = msg.getPropertyNames(); propertyNames.hasMoreElements();) {
+                String name = propertyNames.nextElement().toString();
+                props.setProperty(name, msg.getStringProperty(name));
+            }
+            props.store(fos, "JMS properties for " + msg.getJMSMessageID());
+            fos.flush();
+        }
+    }
+
+    private void saveMessagePayload(Message msg, String baseName) throws JMSException, IOException {
+        try (FileOutputStream fos = new FileOutputStream(new File(_messageFileDirectory, baseName + ".payload"))) {
             byte[] payload;
             if (msg instanceof TextMessage) {
                 payload = TextMessageData.textToBytes(((TextMessage) msg).getText());
@@ -172,9 +196,6 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
             }
             fos.write(payload);
             fos.flush();
-        }
-        catch (IOException e) {
-            _logger.error("Failed to save message!", e);
         }
     }
 
