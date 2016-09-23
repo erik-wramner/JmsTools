@@ -15,25 +15,25 @@
  */
 package name.wramner.jmstools.consumer;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.XAConnectionFactory;
-
-import name.wramner.jmstools.aq.AqJmsUtils;
-import name.wramner.jmstools.consumer.AqJmsConsumer.AqConsumerConfiguration;
+import javax.jms.*;
 
 import org.kohsuke.args4j.Option;
 
+import name.wramner.jmstools.aq.AqJmsUtils;
+import name.wramner.jmstools.aq.AqObjectMessageAdapter;
+import name.wramner.jmstools.consumer.AqJmsConsumer.AqConsumerConfiguration;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
+
 /**
  * JMS consumer for Oracle AQ.
- * 
+ *
  * @author Erik Wramner
  */
 public class AqJmsConsumer extends JmsConsumer<AqConsumerConfiguration> {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command line.
      */
     public static void main(String[] args) {
@@ -61,12 +61,19 @@ public class AqJmsConsumer extends JmsConsumer<AqConsumerConfiguration> {
         @Option(name = "-pw", aliases = { "--aq-jdbc-password" }, usage = "JDBC password for AQ database connection", required = true)
         private String _aqJdbcPassword;
 
+        @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             return AqJmsUtils.createConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
         }
 
+        @Override
         public XAConnectionFactory createXAConnectionFactory() throws JMSException {
             return AqJmsUtils.createXAConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
+        }
+
+        @Override
+        public ObjectMessageAdapter getObjectMessageAdapter() {
+            return new AqObjectMessageAdapter();
         }
     }
 }

@@ -15,27 +15,26 @@
  */
 package name.wramner.jmstools.producer;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.XAConnectionFactory;
-
-import name.wramner.jmstools.aq.AqJmsUtils;
-import name.wramner.jmstools.counter.Counter;
-import name.wramner.jmstools.producer.AqJmsProducer.AqProducerConfiguration;
+import javax.jms.*;
 
 import org.kohsuke.args4j.Option;
 
+import name.wramner.jmstools.aq.AqJmsUtils;
+import name.wramner.jmstools.aq.AqObjectMessageAdapter;
+import name.wramner.jmstools.counter.Counter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
+import name.wramner.jmstools.producer.AqJmsProducer.AqProducerConfiguration;
+
 /**
  * Command line JMS AQ message producer intended for benchmarks and other tests.
- * 
+ *
  * @author Erik Wramner
  */
 public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command line.
      * @see AqProducerConfiguration
      */
@@ -45,7 +44,7 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
 
     /**
      * Create configuration specific to the AQ client.
-     * 
+     *
      * @return configuration instance.
      * @see name.wramner.jmstools.producer.JmsProducer#createConfiguration()
      */
@@ -60,7 +59,7 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
      * possible to configure a flow controller that polls the queue depth in the database and pauses/resumes the
      * producer threads in order to avoid overloading the consumers. For long-running tests where it is difficult to
      * predict how many consumer and producer threads that are needed this can be very useful.
-     * 
+     *
      * @author Erik Wramner
      */
     public static class AqProducerConfiguration extends JmsProducerConfiguration {
@@ -82,6 +81,7 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
         @Option(name = "-flowint", aliases = { "--flow-control-check-interval-seconds" }, usage = "Time between flow control checks")
         private int _flowControlCheckIntervalSeconds = 20;
 
+        @Override
         public Counter createMessageCounter() {
             Counter counter = super.createMessageCounter();
             if (_flowControlPauseAtBacklog != null) {
@@ -104,12 +104,19 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
             };
         }
 
+        @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             return AqJmsUtils.createConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
         }
 
+        @Override
         public XAConnectionFactory createXAConnectionFactory() throws JMSException {
             return AqJmsUtils.createXAConnectionFactory(_aqJdbcUrl, _aqJdbcUser, _aqJdbcPassword);
+        }
+
+        @Override
+        public ObjectMessageAdapter getObjectMessageAdapter() {
+            return new AqObjectMessageAdapter();
         }
     }
 }
