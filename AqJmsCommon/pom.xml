@@ -27,20 +27,29 @@
       <artifactId>JmsCommon</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <dependency>
-      <groupId>oracle</groupId>
-      <artifactId>ojdbc7</artifactId>
-      <version>12.1.0.1.0</version>
-      <scope>system</scope>
-      <systemPath>${basedir}/lib/ojdbc7-12.1.0.1.0.jar</systemPath>
-    </dependency>
-    <dependency>
-      <groupId>oracle</groupId>
-      <artifactId>aqapi</artifactId>
-      <version>12.1.0.2.0</version>
-      <scope>system</scope>
-      <systemPath>${basedir}/lib/aqapi-12.1.2.0.jar</systemPath>
-    </dependency>
   </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.googlecode.addjars-maven-plugin</groupId>
+        <artifactId>addjars-maven-plugin</artifactId>
+        <version>1.0.5</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>add-jars</goal>
+            </goals>
+            <configuration>
+              <resources>
+                <resource>
+                  <directory>${basedir}/lib</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
   <description>AQ-specific classes common to consumers and producers.</description>
 </project>

@@ -46,5 +46,4 @@ Unfortunately Oracle keeps the Oracle JDBC drivers and the AQ JMS code private.
 I can't publish the jar files and I can't download them from the Maven repository.
 In order to use AQ you need to download the JDBC driver from Oracle and you need
 to grab the correct version of aqapi.jar from you Oracle database. Put them in
-AqJmsCommon/lib and adjust the pom.xml file if your version is different from mine
-and you're good to go.
+AqJmsCommon/lib and you're good to go.
