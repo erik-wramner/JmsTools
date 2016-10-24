@@ -123,14 +123,11 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         if (_outlierSize != null) {
             if (_outlierSize.endsWith("G")) {
                 return 1024 * 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            }
-            else if (_outlierSize.endsWith("M")) {
+            } else if (_outlierSize.endsWith("M")) {
                 return 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            }
-            else if (_outlierSize.endsWith("k")) {
+            } else if (_outlierSize.endsWith("k")) {
                 return 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            }
-            else {
+            } else {
                 return Integer.parseInt(_outlierSize);
             }
         }
@@ -191,29 +188,14 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     public StopController createStopController(Counter counter) {
         if (_durationMinutes != null && _stopAfterMessages != null) {
             return new DurationOrCountStopController(_stopAfterMessages.intValue(), counter,
-                _durationMinutes.intValue());
-        }
-        else if (_durationMinutes != null) {
+                    _durationMinutes.intValue());
+        } else if (_durationMinutes != null) {
             return new DurationStopController(_durationMinutes.intValue());
-        }
-        else if (_stopAfterMessages != null) {
+        } else if (_stopAfterMessages != null) {
             return new CountStopController(_stopAfterMessages.intValue(), counter);
-        }
-        else if (_messageFileDirectory != null && _ordered) {
-            int numberOfFiles = 0;
-            if (_messageFileDirectory.isDirectory()) {
-                for (File file : _messageFileDirectory.listFiles()) {
-                    if (file.isFile() && !file.getName().endsWith(".headers")) {
-                        numberOfFiles++;
-                    }
-                }
-            }
-            else {
-                numberOfFiles = 1;
-            }
-            return new CountStopController(numberOfFiles, counter);
-        }
-        else {
+        } else if (_messageFileDirectory != null && _ordered) {
+            return new CountStopController(countPreparedFiles(), counter);
+        } else {
             return new RunForeverStopController();
         }
     }
@@ -226,25 +208,26 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
      */
     public MessageProvider createMessageProvider() throws IOException {
         if (_messageFileDirectory != null) {
+            boolean noDuplicates = _ordered && _durationMinutes == null
+                    && (_stopAfterMessages == null || _stopAfterMessages.intValue() == countPreparedFiles());
             String encoding = _messageFileEncoding != null ? _messageFileEncoding : DEFAULT_FILE_ENCODING;
             switch (_messageType) {
             case TEXT:
-                return new TextMessageProvider(_messageFileDirectory, encoding, _ordered);
+                return new TextMessageProvider(_messageFileDirectory, encoding, _ordered, noDuplicates);
             case BYTES:
-                return new BytesMessageProvider(_messageFileDirectory, encoding, _ordered);
+                return new BytesMessageProvider(_messageFileDirectory, encoding, _ordered, noDuplicates);
             case OBJECT:
-                return new ObjectMessageProvider(_messageFileDirectory, getObjectMessageAdapter());
+                return new ObjectMessageProvider(_messageFileDirectory, getObjectMessageAdapter(), _ordered,
+                        noDuplicates);
             default:
                 throw new IllegalStateException("Message type " + _messageType + " not handled!");
             }
-        }
-        else if (_minMessageSize != null || _maxMessageSize != null) {
+        } else if (_minMessageSize != null || _maxMessageSize != null) {
             int minSize = getMinMessageSize();
             int maxSize = getMaxMessageSize();
             int count = Math.min(Math.max(maxSize - minSize, 1), _numberOfMessages);
             return createMessageProviderForRandomData(minSize, maxSize, count);
-        }
-        else {
+        } else {
             return createMessageProviderForRandomData(DEFAULT_MIN_SIZE, DEFAULT_MAX_SIZE, _numberOfMessages);
         }
     }
@@ -270,5 +253,24 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         default:
             throw new IllegalStateException("Message type " + _messageType + " not handled!");
         }
+    }
+
+    private int countPreparedFiles() {
+        int numberOfFiles = 0;
+        if (_messageFileDirectory != null) {
+            if (_messageFileDirectory.isDirectory()) {
+                File[] files = _messageFileDirectory.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.isFile() && !file.getName().endsWith(".headers")) {
+                            numberOfFiles++;
+                        }
+                    }
+                }
+            } else {
+                numberOfFiles = 1;
+            }
+        }
+        return numberOfFiles;
     }
 }

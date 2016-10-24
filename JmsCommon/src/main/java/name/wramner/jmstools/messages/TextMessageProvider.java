@@ -26,26 +26,27 @@ import javax.jms.TextMessage;
 
 /**
  * A message provider for {@link TextMessage} messages.
- * 
+ *
  * @author Erik Wramner
  */
 public class TextMessageProvider extends BaseMessageProvider<TextMessageData> {
 
     /**
      * Constructor for prepared messages.
-     * 
+     *
      * @param directory The message directory.
      * @param encoding The encoding for the files.
      * @param ordered The flag to send messages in alphabetical order or in random order.
+     * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on failure to read files.
      */
-    public TextMessageProvider(File directory, String encoding, boolean ordered) throws IOException {
-        super(directory, encoding, ordered);
+    public TextMessageProvider(File directory, String encoding, boolean ordered, boolean noDuplicates) throws IOException {
+        super(directory, encoding, ordered, noDuplicates);
     }
 
     /**
      * Constructor for random messages.
-     * 
+     *
      * @param minSize The minimum size in bytes.
      * @param maxSize The maximum size in bytes.
      * @param numberOfMessages The number of messages to prepare.

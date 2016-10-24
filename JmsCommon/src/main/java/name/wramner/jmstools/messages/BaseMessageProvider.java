@@ -50,6 +50,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     private final List<T> _messageDataList = new ArrayList<>();
     private final List<Map<String, String>> _messageHeaderList = new ArrayList<>();
     private final boolean _ordered;
+    private final boolean _noDuplicates;
     private final AtomicInteger _messageIndex = new AtomicInteger(0);
     private final Double _outlierPercentage;
     private final int _outlierSize;
@@ -60,9 +61,10 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
      * @param fileOrDirectory The single file or the directory containing files.
      * @param encoding The character encoding.
      * @param ordered The flag to send messages in order or randomly.
+     * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on read errors.
      */
-    protected BaseMessageProvider(File fileOrDirectory, String encoding, boolean ordered) throws IOException {
+    protected BaseMessageProvider(File fileOrDirectory, String encoding, boolean ordered, boolean noDuplicates) throws IOException {
         if (fileOrDirectory.isDirectory()) {
             File[] files = fileOrDirectory.listFiles();
             Arrays.sort(files);
@@ -78,6 +80,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         _ordered = ordered;
         _outlierPercentage = null;
         _outlierSize = 0;
+        _noDuplicates = noDuplicates;
     }
 
     /**
@@ -109,6 +112,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         _ordered = false;
         _outlierPercentage = outlierPercentage;
         _outlierSize = outlierSize;
+        _noDuplicates = false;
     }
 
     /**
@@ -155,6 +159,10 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         }
         else {
             int index = getNextMessageDataIndex();
+            if(index < 0) {
+                // No duplicates and all messages returned once
+                return null;
+            }
             messageData = _messageDataList.get(index);
             headers = _messageHeaderList.get(index);
         }
@@ -169,7 +177,16 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
 
     private int getNextMessageDataIndex() {
         int numberOfMessages = _messageDataList.size();
-        return _ordered ? _messageIndex.incrementAndGet() % numberOfMessages : _random.nextInt(numberOfMessages);
+        if(_ordered) {
+            int index = _messageIndex.incrementAndGet();
+            if(_noDuplicates && index > numberOfMessages) {
+                return -1;
+            }
+            return index % numberOfMessages;
+
+        } else {
+            return _random.nextInt(numberOfMessages);
+        }
     }
 
     private void readPayloadAndHeaders(File file, Charset encoding) throws IOException {

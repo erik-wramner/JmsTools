@@ -36,7 +36,7 @@ import name.wramner.jmstools.stopcontroller.StopController;
  * satisfied. All messages are logged to a {@link Counter}. The connection may use standard or XA transaction semantics.
  * Messages may be logged with unique identities, making it possible to check if a message has been lost or delivered
  * twice. Receive timeout, sleep times, rollbacks and many other settings are configurable.
- * 
+ *
  * @author Erik Wramner
  * @param <T> The configuration class.
  */
@@ -51,7 +51,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
 
     /**
      * Constructor.
-     * 
+     *
      * @param resourceManagerFactory The resource manager factory.
      * @param counter The counter for sent messages.
      * @param stopController The stop controller.
@@ -79,7 +79,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
 
     /**
      * Send messages until the stop controller is satisfied or until an error occurs.
-     * 
+     *
      * @param resourceManager The resource manager for transaction control.
      * @throws JMSException on JMS errors.
      * @throws RollbackException when the XA resource has been rolled back.
@@ -92,9 +92,14 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
         while (_stopController.keepRunning()) {
             resourceManager.startTransaction();
 
+            int numberOfMessages = 0;
             for (int i = 0; i < _messagesPerBatch; i++) {
                 Message message = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
                                 .getSession());
+                if(message == null) {
+                    // Handle race condition between threads when sending prepared messages once
+                    break;
+                }
 
                 if (_idAndChecksumEnabled) {
                     message.setStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME, UUID.randomUUID()
@@ -108,13 +113,14 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
                 }
 
                 resourceManager.getMessageProducer().send(message);
+                numberOfMessages++;
 
                 if (messageLogEnabled()) {
                     logMessage(message, delay);
                 }
             }
 
-            commitOrRollback(resourceManager, _messagesPerBatch);
+            commitOrRollback(resourceManager, numberOfMessages);
             if (_sleepTimeMillisAfterBatch > 0) {
                 _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
             }

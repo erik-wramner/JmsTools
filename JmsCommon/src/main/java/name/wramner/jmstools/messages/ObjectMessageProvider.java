@@ -26,7 +26,7 @@ import javax.jms.Session;
 
 /**
  * A message provider for {@link ObjectMessage} messages.
- * 
+ *
  * @author Erik Wramner
  */
 public class ObjectMessageProvider extends BaseMessageProvider<BytesMessageData> {
@@ -34,13 +34,16 @@ public class ObjectMessageProvider extends BaseMessageProvider<BytesMessageData>
 
     /**
      * Constructor for prepared messages.
-     * 
+     *
      * @param directory The message directory.
      * @param adapter The object message adapter.
+     * @param ordered The flag to send messages in alphabetical order or in random order.
+     * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on failure to read files.
      */
-    public ObjectMessageProvider(File directory, ObjectMessageAdapter adapter) throws IOException {
-        super(directory, "UTF-8", true);
+    public ObjectMessageProvider(File directory, ObjectMessageAdapter adapter, boolean ordered, boolean noDuplicates)
+            throws IOException {
+        super(directory, "UTF-8", ordered, noDuplicates);
         _adapter = adapter;
     }
 
