@@ -15,6 +15,7 @@
  */
 package name.wramner.jmstools.consumer;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -23,9 +24,11 @@ import java.util.Properties;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.ObjectMessage;
+import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
@@ -190,8 +193,25 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
             else if (msg instanceof ObjectMessage) {
                 payload = _objectMessageAdapter.getObjectPayload((ObjectMessage) msg);
             }
+            else if (msg instanceof MapMessage) {
+                // Partial support, not all data types are handled and we may not be able to post
+                MapMessage mapMessage = (MapMessage) msg;
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                Properties props = new Properties();
+                for (Enumeration<?> mapNames = mapMessage.getMapNames(); mapNames.hasMoreElements();) {
+                    String mapName = mapNames.nextElement().toString();
+                    props.setProperty(mapName, mapMessage.getObject(mapName).toString());
+                }
+                props.store(bos, "Map message properties for " + msg.getJMSMessageID());
+                payload = bos.toByteArray();
+            }
+            else if (msg instanceof StreamMessage) {
+                _logger.warn("Can't save payload for {}, stream messages not supported!", msg.getJMSMessageID());
+                payload = new byte[0];
+            }
             else {
-                _logger.warn("Can't save payload for {}, unsupported type!", msg.getJMSMessageID());
+                _logger.warn("Can't save payload for {}, unsupported type {}!", msg.getJMSMessageID(),
+                    msg.getClass().getName());
                 payload = new byte[0];
             }
             fos.write(payload);

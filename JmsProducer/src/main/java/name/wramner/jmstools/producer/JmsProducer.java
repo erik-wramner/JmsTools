@@ -25,6 +25,8 @@ import java.util.List;
 
 import javax.jms.JMSException;
 
+import com.atomikos.icatch.jta.UserTransactionManager;
+
 import name.wramner.jmstools.JmsClient;
 import name.wramner.jmstools.StatisticsLogger;
 import name.wramner.jmstools.counter.Counter;
@@ -34,12 +36,10 @@ import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.rm.XAJmsResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
 
-import com.atomikos.icatch.jta.UserTransactionManager;
-
 /**
- * A JMS producer creates a configurable number of threads and enqueues messages on a given queue. It can be used for
+ * A JMS producer creates a configurable number of threads and enqueues messages on a given destination. It can be used for
  * benchmarking and correctness tests. Concrete subclasses provide support for specific JMS providers.
- * 
+ *
  * @author Erik Wramner
  * @param <T> The concrete configuration class.
  */
@@ -51,14 +51,17 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
         MessageProvider messageProvider;
         try {
             messageProvider = config.createMessageProvider();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new UncheckedIOException("Failed to initialize message provider", e);
         }
         Counter counter = config.createMessageCounter();
         StopController stopController = config.createStopController(counter);
-        ResourceManagerFactory resourceManagerFactory = config.useXa() ? new XAJmsResourceManagerFactory(
-                        new UserTransactionManager(), config.createXAConnectionFactory(), config.getQueueName())
-                        : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getQueueName());
+        ResourceManagerFactory resourceManagerFactory = config.useXa()
+                ? new XAJmsResourceManagerFactory(new UserTransactionManager(), config.createXAConnectionFactory(),
+                    config.getDestinationName(), config.isDestinationTypeQueue())
+                : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
+                    config.isDestinationTypeQueue());
         List<Thread> threads = createThreads(resourceManagerFactory, counter, stopController, messageProvider, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, counter), "StatisticsLogger"));
@@ -67,14 +70,16 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
     }
 
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter counter,
-                    StopController stopController, MessageProvider messageProvider, T config) {
+            StopController stopController, MessageProvider messageProvider, T config) {
         String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
-            threads.add(new Thread(new EnqueueWorker<T>(resourceManagerFactory, counter, stopController,
-                            messageProvider, config.getLogDirectory() != null ? new File(config.getLogDirectory(),
-                                            LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
-                            config), "EnqueueWorker-" + (i + 1)));
+            threads.add(new Thread(
+                new EnqueueWorker<T>(resourceManagerFactory, counter, stopController, messageProvider,
+                    config.getLogDirectory() != null ? new File(config.getLogDirectory(),
+                        LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
+                    config),
+                "EnqueueWorker-" + (i + 1)));
         }
         return threads;
     }

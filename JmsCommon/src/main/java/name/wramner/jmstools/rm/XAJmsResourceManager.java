@@ -36,7 +36,7 @@ import com.atomikos.icatch.jta.UserTransactionManager;
 
 /**
  * Resource manager for XA JMS.
- * 
+ *
  * @author Erik Wramner
  */
 public class XAJmsResourceManager extends ResourceManager {
@@ -48,14 +48,15 @@ public class XAJmsResourceManager extends ResourceManager {
 
     /**
      * Constructor.
-     * 
+     *
      * @param transactionManager The transaction manager.
      * @param connFactory The XA connection factory.
      * @param queueName The queue name.
+     * @param destinationTypeQueue The destination type flag.
      */
     public XAJmsResourceManager(UserTransactionManager transactionManager, XAConnectionFactory connFactory,
-                    String queueName) {
-        super(queueName);
+            String queueName, boolean destinationTypeQueue) {
+        super(queueName, destinationTypeQueue);
         _transactionManager = transactionManager;
         _connFactory = connFactory;
     }
@@ -66,7 +67,7 @@ public class XAJmsResourceManager extends ResourceManager {
     @Override
     protected MessageProducer createMessageProducer() throws JMSException {
         XASession session = getSession();
-        return session.createProducer(getQueue(session, _queueName));
+        return session.createProducer(getDestination(session, _destinationName, _destinationTypeQueue));
     }
 
     /**
@@ -76,7 +77,8 @@ public class XAJmsResourceManager extends ResourceManager {
     protected MessageConsumer createMessageConsumer() throws JMSException {
         XASession session = getSession();
         _conn.start();
-        MessageConsumer consumer = session.createConsumer(getQueue(session, _queueName));
+        MessageConsumer consumer = session
+            .createConsumer(getDestination(session, _destinationName, _destinationTypeQueue));
         return consumer;
     }
 
@@ -103,7 +105,8 @@ public class XAJmsResourceManager extends ResourceManager {
             _transactionManager.begin();
             Transaction tx = _transactionManager.getTransaction();
             tx.enlistResource(getSession().getXAResource());
-        } catch (NotSupportedException | SystemException e) {
+        }
+        catch (NotSupportedException | SystemException e) {
             _logger.error("Failed to start transaction", e);
             throw new IllegalStateException("Failed to start transaction", e);
         }
@@ -120,7 +123,8 @@ public class XAJmsResourceManager extends ResourceManager {
                 tx.delistResource(getSession().getXAResource(), XAResource.TMSUCCESS);
                 tx.commit();
             }
-        } catch (SystemException e) {
+        }
+        catch (SystemException e) {
             _logger.error("Failed to rollback", e);
             throw new RuntimeException("Failed to rollback", e);
         }
@@ -137,7 +141,8 @@ public class XAJmsResourceManager extends ResourceManager {
                 tx.delistResource(getSession().getXAResource(), XAResource.TMFAIL);
                 tx.rollback();
             }
-        } catch (SystemException e) {
+        }
+        catch (SystemException e) {
             _logger.error("Failed to rollback", e);
             throw new RuntimeException("Failed to rollback", e);
         }
@@ -157,7 +162,8 @@ public class XAJmsResourceManager extends ResourceManager {
                     tx.rollback();
                 }
             }
-        } catch (SystemException e) {
+        }
+        catch (SystemException e) {
             // Ignore
         }
         closeSafely(_session);

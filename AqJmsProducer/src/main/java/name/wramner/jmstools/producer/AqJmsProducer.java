@@ -87,7 +87,7 @@ public class AqJmsProducer extends JmsProducer<AqProducerConfiguration> {
             if (_flowControlPauseAtBacklog != null) {
                 return new FlowControllingCounter(counter, new AqFlowController(_aqJdbcUrl, _aqJdbcUser,
                                 _aqJdbcPassword, _flowControlPauseAtBacklog.intValue(), _flowControlResumeAtBacklog,
-                                getQueueName(), _flowControlCheckIntervalSeconds));
+                                getDestinationName(), _flowControlCheckIntervalSeconds));
             } else {
                 return counter;
             }

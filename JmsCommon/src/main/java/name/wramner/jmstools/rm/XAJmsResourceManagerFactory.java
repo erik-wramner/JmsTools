@@ -21,26 +21,29 @@ import com.atomikos.icatch.jta.UserTransactionManager;
 
 /**
  * Factory for XA JMS {@link ResourceManager}.
- * 
+ *
  * @author Erik Wramner
  */
 public class XAJmsResourceManagerFactory implements ResourceManagerFactory {
     private final UserTransactionManager _transactionManager;
     private final XAConnectionFactory _connFactory;
-    private final String _queueName;
+    private final String _destinationName;
+    private final boolean _destinationTypeQueue;
 
     /**
      * Constructor.
-     * 
+     *
      * @param transactionManager The transaction manager.
      * @param connFactory The XA connection factory.
-     * @param queueName The queue name.
+     * @param destinationName The destination name.
+     * @param destinationTypeQueue The flag selecting queue or topic.
      */
     public XAJmsResourceManagerFactory(UserTransactionManager transactionManager, XAConnectionFactory connFactory,
-                    String queueName) {
+            String destinationName, boolean destinationTypeQueue) {
         _transactionManager = transactionManager;
         _connFactory = connFactory;
-        _queueName = queueName;
+        _destinationName = destinationName;
+        _destinationTypeQueue = destinationTypeQueue;
     }
 
     /**
@@ -48,7 +51,7 @@ public class XAJmsResourceManagerFactory implements ResourceManagerFactory {
      */
     @Override
     public ResourceManager createResourceManager() {
-        return new XAJmsResourceManager(_transactionManager, _connFactory, _queueName);
+        return new XAJmsResourceManager(_transactionManager, _connFactory, _destinationName, _destinationTypeQueue);
     }
 
 }

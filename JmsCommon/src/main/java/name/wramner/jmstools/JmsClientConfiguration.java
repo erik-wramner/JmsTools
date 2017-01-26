@@ -30,7 +30,7 @@ import name.wramner.jmstools.messages.ObjectMessageAdapter;
 
 /**
  * Base class for JMS client configuration classes. Includes options common to both consumers and producers.
- * 
+ *
  * @author Erik Wramner
  */
 public abstract class JmsClientConfiguration {
@@ -41,8 +41,11 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
     protected int _threads = 1;
 
-    @Option(name = "-queue", aliases = { "--queue-name" }, usage = "Queue name")
-    protected String _queueName = "test_queue";
+    @Option(name = "-queue", aliases = { "--queue-name" }, usage = "Queue name", forbids = "-topic")
+    protected String _queueName;
+
+    @Option(name = "-topic", aliases = { "--topic-name" }, usage = "Topic name", forbids = "-queue")
+    protected String _topicName;
 
     @Option(name = "-count", aliases = { "--stop-after-messages" }, usage = "Total number of messages to process")
     protected Integer _stopAfterMessages;
@@ -96,12 +99,21 @@ public abstract class JmsClientConfiguration {
     }
 
     /**
-     * Get the queue name.
+     * Get the queue or topic name.
      *
-     * @return queue name.
+     * @return destination name.
      */
-    public String getQueueName() {
-        return _queueName;
+    public String getDestinationName() {
+        return _queueName != null ? _queueName : (_topicName != null ? _topicName : "test_queue");
+    }
+
+    /**
+     * Check if the destination is a queue or topic.
+     *
+     * @return true if queue.
+     */
+    public boolean isDestinationTypeQueue() {
+        return _topicName == null;
     }
 
     /**
@@ -202,7 +214,7 @@ public abstract class JmsClientConfiguration {
     /**
      * Get the time between two checkpoints for the transaction log in seconds. A checkpoint reduces the size of the
      * transaction log, but imposes some overhead.
-     * 
+     *
      * @return checkpoint interval.
      */
     public long getCheckpointIntervalSeconds() {
@@ -227,7 +239,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Get adapter for converting between raw bytes and object messages.
-     * 
+     *
      * @return adapter.
      */
     public ObjectMessageAdapter getObjectMessageAdapter() {

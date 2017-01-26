@@ -24,7 +24,7 @@ import javax.jms.Session;
 
 /**
  * Resource manager for standard non-XA JMS.
- * 
+ *
  * @author Erik Wramner
  */
 public class JmsResourceManager extends ResourceManager {
@@ -34,12 +34,13 @@ public class JmsResourceManager extends ResourceManager {
 
     /**
      * Constructor.
-     * 
+     *
      * @param connFactory The JMS connection factory.
      * @param queueName The queue name.
+     * @param destinationTypeQueue The destination type flag.
      */
-    public JmsResourceManager(ConnectionFactory connFactory, String queueName) {
-        super(queueName);
+    public JmsResourceManager(ConnectionFactory connFactory, String queueName, boolean destinationTypeQueue) {
+        super(queueName, destinationTypeQueue);
         _connFactory = connFactory;
     }
 
@@ -49,7 +50,7 @@ public class JmsResourceManager extends ResourceManager {
     @Override
     protected MessageProducer createMessageProducer() throws JMSException {
         Session session = getSession();
-        return session.createProducer(getQueue(session, _queueName));
+        return session.createProducer(getDestination(session, _destinationName, _destinationTypeQueue));
     }
 
     /**
@@ -59,7 +60,8 @@ public class JmsResourceManager extends ResourceManager {
     protected MessageConsumer createMessageConsumer() throws JMSException {
         Session session = getSession();
         _conn.start();
-        MessageConsumer consumer = session.createConsumer(getQueue(session, _queueName));
+        MessageConsumer consumer = session
+            .createConsumer(getDestination(session, _destinationName, _destinationTypeQueue));
         return consumer;
     }
 

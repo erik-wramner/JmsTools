@@ -19,22 +19,26 @@ import javax.jms.ConnectionFactory;
 
 /**
  * Factory for standard non-XA JMS {@link ResourceManager}.
- * 
+ *
  * @author Erik Wramner
  */
 public class JmsResourceManagerFactory implements ResourceManagerFactory {
     private final ConnectionFactory _connFactory;
-    private final String _queueName;
+    private final String _destinationName;
+    private final boolean _destinationTypeQueue;
 
     /**
      * Constructor.
-     * 
+     *
      * @param connFactory The JMS connection factory.
-     * @param queueName The queue name.
+     * @param destinationName The destination name.
+     * @param destinationTypeQueue The flag selecting queue or topic.
      */
-    public JmsResourceManagerFactory(ConnectionFactory connFactory, String queueName) {
+    public JmsResourceManagerFactory(ConnectionFactory connFactory, String destinationName,
+            boolean destinationTypeQueue) {
         _connFactory = connFactory;
-        _queueName = queueName;
+        _destinationName = destinationName;
+        _destinationTypeQueue = destinationTypeQueue;
     }
 
     /**
@@ -42,6 +46,6 @@ public class JmsResourceManagerFactory implements ResourceManagerFactory {
      */
     @Override
     public ResourceManager createResourceManager() {
-        return new JmsResourceManager(_connFactory, _queueName);
+        return new JmsResourceManager(_connFactory, _destinationName, _destinationTypeQueue);
     }
 }

@@ -21,10 +21,10 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
-import javax.jms.Queue;
 import javax.jms.Session;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
@@ -33,27 +33,30 @@ import javax.transaction.RollbackException;
 /**
  * A resource manager manages resources. Yeah, right. The name is awful. To be more specific a resource manager in this
  * context manages the JMS resources for a producer or consumer as well as the transaction (XA or local) for the same.
- * 
+ *
  * @author Erik Wramner
  */
 public abstract class ResourceManager implements AutoCloseable {
-    private static final Map<String, Queue> QUEUE_MAP = new ConcurrentHashMap<>();
+    private static final Map<String, Destination> DESTINATION_MAP = new ConcurrentHashMap<>();
     private MessageProducer _producer;
     private MessageConsumer _consumer;
-    protected final String _queueName;
+    protected final String _destinationName;
+    protected final boolean _destinationTypeQueue;
 
     /**
      * Constructor.
-     * 
-     * @param queueName The queue name.
+     *
+     * @param destinationName The queue name.
+     * @param destinationTypeQueue The flag controlling queue/topic.
      */
-    public ResourceManager(String queueName) {
-        _queueName = queueName;
+    public ResourceManager(String destinationName, boolean destinationTypeQueue) {
+        _destinationName = destinationName;
+        _destinationTypeQueue = destinationTypeQueue;
     }
 
     /**
      * Get message producer, create if necessary.
-     * 
+     *
      * @return producer.
      * @throws JMSException on errors.
      */
@@ -66,7 +69,7 @@ public abstract class ResourceManager implements AutoCloseable {
 
     /**
      * Get message consumer, create if necessary. Also start connection.
-     * 
+     *
      * @return consumer.
      * @throws JMSException on errors.
      */
@@ -79,7 +82,7 @@ public abstract class ResourceManager implements AutoCloseable {
 
     /**
      * Get JMS session.
-     * 
+     *
      * @return session.
      * @throws JMSException on errors.
      */
@@ -87,7 +90,7 @@ public abstract class ResourceManager implements AutoCloseable {
 
     /**
      * Create a message producer.
-     * 
+     *
      * @return new producer.
      * @throws JMSException on errors.
      */
@@ -95,7 +98,7 @@ public abstract class ResourceManager implements AutoCloseable {
 
     /**
      * Create a message consumer.
-     * 
+     *
      * @return new consumer.
      * @throws JMSException on errors.
      */
@@ -103,34 +106,33 @@ public abstract class ResourceManager implements AutoCloseable {
 
     /**
      * Start a new transaction. The default implementation does nothing, but for XA transactions this is needed.
-     * 
+     *
      * @throws RollbackException if rolled back.
      * @throws JMSException on JMS errors.
      */
-    public void startTransaction() throws RollbackException, JMSException {
-    }
+    public void startTransaction() throws RollbackException, JMSException {}
 
     /**
      * Commit transaction.
-     * 
+     *
      * @throws JMSException on JMS errors.
      * @throws RollbackException if rolled back.
      * @throws HeuristicMixedException if partly committed and partly rolled back.
      * @throws HeuristicRollbackException if rolled back.
      */
-    public abstract void commit() throws JMSException, RollbackException, HeuristicMixedException,
-                    HeuristicRollbackException;
+    public abstract void commit()
+            throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException;
 
     /**
      * Roll back transaction.
-     * 
+     *
      * @throws JMSException on JMS errors.
      */
     public abstract void rollback() throws JMSException;
 
     /**
      * Close resources.
-     * 
+     *
      * @see java.lang.AutoCloseable#close()
      */
     @Override
@@ -140,25 +142,28 @@ public abstract class ResourceManager implements AutoCloseable {
     }
 
     /**
-     * Get cached queue or create and return it.
-     * 
+     * Get cached destination or create and return it.
+     *
      * @param session The JMS session.
-     * @param queueName The queue name.
-     * @return queue.
+     * @param destinationName The queue or topic name.
+     * @param destinationTypeQueue The flag that selects queue (true) or topic (false).
+     * @return queue or topic.
      * @throws JMSException on errors.
      */
-    protected static Queue getQueue(Session session, String queueName) throws JMSException {
-        Queue queue = QUEUE_MAP.get(queueName);
-        if (queue == null) {
-            queue = session.createQueue(queueName);
-            QUEUE_MAP.put(queueName, queue);
+    protected static Destination getDestination(Session session, String destinationName, boolean destinationTypeQueue)
+            throws JMSException {
+        Destination destination = DESTINATION_MAP.get(destinationName);
+        if (destination == null) {
+            destination = destinationTypeQueue ? session.createQueue(destinationName)
+                    : session.createTopic(destinationName);
+            DESTINATION_MAP.put(destinationName, destination);
         }
-        return queue;
+        return destination;
     }
 
     /**
      * Close the object and ignore any exceptions.
-     * 
+     *
      * @param o The object.
      * @throws IllegalStateException if there is no close method.
      */
@@ -167,26 +172,32 @@ public abstract class ResourceManager implements AutoCloseable {
             if (o instanceof AutoCloseable) {
                 try {
                     ((AutoCloseable) o).close();
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     // Ignore exception
                 }
-            } else if (o instanceof Closeable) {
+            }
+            else if (o instanceof Closeable) {
                 try {
                     ((Closeable) o).close();
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     // Ignore exception
                 }
-            } else {
+            }
+            else {
                 Method closeMethod;
                 try {
                     closeMethod = o.getClass().getMethod("close");
-                } catch (NoSuchMethodException e) {
-                    throw new IllegalStateException("Not possible to clean up " + o.getClass().getName()
-                                    + ": no close method!", e);
+                }
+                catch (NoSuchMethodException e) {
+                    throw new IllegalStateException(
+                        "Not possible to clean up " + o.getClass().getName() + ": no close method!", e);
                 }
                 try {
                     closeMethod.invoke(o);
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     // Ignore all exceptions
                 }
             }
