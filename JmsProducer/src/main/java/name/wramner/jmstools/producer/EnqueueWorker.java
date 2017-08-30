@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
+import javax.jms.MessageProducer;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
@@ -48,6 +49,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
     private final double _delayedDeliveryProbability;
     private final int _delayedDeliverySeconds;
     private final DelayedDeliveryAdapter _delayedDeliveryAdapter;
+    private final Long _timeToLiveMillis;
 
     /**
      * Constructor.
@@ -60,17 +62,19 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
      * @param config The configuration for other options.
      */
     public EnqueueWorker(ResourceManagerFactory resourceManagerFactory, Counter counter, StopController stopController,
-                    MessageProvider messageProvider, File logFile, T config) {
+            MessageProvider messageProvider, File logFile, T config) {
         super(resourceManagerFactory, counter, stopController, logFile, config);
         _messageProvider = messageProvider;
         _messagesPerBatch = config.getMessagesPerBatch();
         _sleepTimeMillisAfterBatch = config.getSleepTimeMillisAfterBatch();
         _idAndChecksumEnabled = config.isIdAndChecksumEnabled();
+        _timeToLiveMillis = config.getTimeToLiveMillis();
         if (config.getDelayedDeliveryPercentage() != null) {
             _delayedDeliveryAdapter = config.createDelayedDeliveryAdapter();
             _delayedDeliveryProbability = config.getDelayedDeliveryPercentage().doubleValue() / 100.0;
             _delayedDeliverySeconds = config.getDelayedDeliverySeconds();
-        } else {
+        }
+        else {
             _delayedDeliveryAdapter = null;
             _delayedDeliveryProbability = 0.0;
             _delayedDeliverySeconds = 0;
@@ -87,23 +91,23 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
      * @throws HeuristicMixedException when the XA resource has been rolled back OR committed.
      */
     @Override
-    protected void processMessages(ResourceManager resourceManager) throws RollbackException, JMSException,
-                    HeuristicMixedException, HeuristicRollbackException {
+    protected void processMessages(ResourceManager resourceManager)
+            throws RollbackException, JMSException, HeuristicMixedException, HeuristicRollbackException {
         while (_stopController.keepRunning()) {
             resourceManager.startTransaction();
 
             int numberOfMessages = 0;
             for (int i = 0; i < _messagesPerBatch; i++) {
-                Message message = _messageProvider.createMessageWithPayloadAndChecksumProperty(resourceManager
-                                .getSession());
-                if(message == null) {
+                Message message = _messageProvider
+                    .createMessageWithPayloadAndChecksumProperty(resourceManager.getSession());
+                if (message == null) {
                     // Handle race condition between threads when sending prepared messages once
                     break;
                 }
 
                 if (_idAndChecksumEnabled) {
-                    message.setStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME, UUID.randomUUID()
-                                    .toString());
+                    message.setStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME,
+                        UUID.randomUUID().toString());
                 }
 
                 int delay = 0;
@@ -112,7 +116,11 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
                     delay = _delayedDeliverySeconds;
                 }
 
-                resourceManager.getMessageProducer().send(message);
+                MessageProducer messageProducer = resourceManager.getMessageProducer();
+                if (_timeToLiveMillis != null) {
+                    messageProducer.setTimeToLive(_timeToLiveMillis.longValue());
+                }
+                messageProducer.send(message);
                 numberOfMessages++;
 
                 if (messageLogEnabled()) {
@@ -134,10 +142,9 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
 
     private void logMessage(Message message, int delay) throws JMSException {
         logMessage(String.valueOf(System.currentTimeMillis()),
-                        message.getStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME),
-                        String.valueOf(message.getIntProperty(MessageProvider.LENGTH_PROPERTY_NAME)),
-                        String.valueOf(delay),
-                        message.getJMSMessageID());
+            message.getStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME),
+            String.valueOf(message.getIntProperty(MessageProvider.LENGTH_PROPERTY_NAME)), String.valueOf(delay),
+            message.getJMSMessageID());
     }
 
     private boolean shouldDelayDelivery() {

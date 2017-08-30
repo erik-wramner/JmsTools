@@ -96,6 +96,9 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     @Option(name = "-delay-sec", aliases = "--delayed-delivery-seconds", usage = "The number of seconds to delay scheduled messages")
     protected int _delayedDeliverySeconds;
 
+    @Option(name = "-ttl", aliases = "--time-to-live-millis", usage = "The number of milliseconds before a message expires")
+    protected Long _timeToLiveMillis;
+
     /**
      * Get the percentage of delayed messages.
      *
@@ -115,6 +118,15 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     }
 
     /**
+     * Get the time to live for posted messages in milliseconds.
+     *
+     * @return ttl or null for no expiration.
+     */
+    public Long getTimeToLiveMillis() {
+        return _timeToLiveMillis;
+    }
+
+    /**
      * Get the outlier size in bytes. An outlier is a message much larger than the normal message size.
      *
      * @return outlier size in bytes.
@@ -123,11 +135,14 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         if (_outlierSize != null) {
             if (_outlierSize.endsWith("G")) {
                 return 1024 * 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else if (_outlierSize.endsWith("M")) {
+            }
+            else if (_outlierSize.endsWith("M")) {
                 return 1024 * 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else if (_outlierSize.endsWith("k")) {
+            }
+            else if (_outlierSize.endsWith("k")) {
                 return 1024 * Integer.parseInt(_outlierSize.substring(0, _outlierSize.length() - 1));
-            } else {
+            }
+            else {
                 return Integer.parseInt(_outlierSize);
             }
         }
@@ -188,14 +203,18 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     public StopController createStopController(Counter counter) {
         if (_durationMinutes != null && _stopAfterMessages != null) {
             return new DurationOrCountStopController(_stopAfterMessages.intValue(), counter,
-                    _durationMinutes.intValue());
-        } else if (_durationMinutes != null) {
+                _durationMinutes.intValue());
+        }
+        else if (_durationMinutes != null) {
             return new DurationStopController(_durationMinutes.intValue());
-        } else if (_stopAfterMessages != null) {
+        }
+        else if (_stopAfterMessages != null) {
             return new CountStopController(_stopAfterMessages.intValue(), counter);
-        } else if (_messageFileDirectory != null && _ordered) {
+        }
+        else if (_messageFileDirectory != null && _ordered) {
             return new CountStopController(countPreparedFiles(), counter);
-        } else {
+        }
+        else {
             return new RunForeverStopController();
         }
     }
@@ -218,16 +237,18 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
                 return new BytesMessageProvider(_messageFileDirectory, encoding, _ordered, noDuplicates);
             case OBJECT:
                 return new ObjectMessageProvider(_messageFileDirectory, getObjectMessageAdapter(), _ordered,
-                        noDuplicates);
+                    noDuplicates);
             default:
                 throw new IllegalStateException("Message type " + _messageType + " not handled!");
             }
-        } else if (_minMessageSize != null || _maxMessageSize != null) {
+        }
+        else if (_minMessageSize != null || _maxMessageSize != null) {
             int minSize = getMinMessageSize();
             int maxSize = getMaxMessageSize();
             int count = Math.min(Math.max(maxSize - minSize, 1), _numberOfMessages);
             return createMessageProviderForRandomData(minSize, maxSize, count);
-        } else {
+        }
+        else {
             return createMessageProviderForRandomData(DEFAULT_MIN_SIZE, DEFAULT_MAX_SIZE, _numberOfMessages);
         }
     }
@@ -267,7 +288,8 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 numberOfFiles = 1;
             }
         }
