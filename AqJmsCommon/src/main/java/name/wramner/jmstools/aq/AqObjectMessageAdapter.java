@@ -15,25 +15,49 @@
  */
 package name.wramner.jmstools.aq;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import javax.jms.JMSException;
 import javax.jms.ObjectMessage;
 
 import name.wramner.jmstools.messages.ObjectMessageAdapter;
-import oracle.jms.AQjmsObjectMessage;
 
 /**
  * Uses AQ-specific code to get and set object message payload as bytes.
- * 
+ * <p>
+ * The Oracle libraries are not publicly available using Maven. In order to keep the build
+ * without dependencies they are used indirectly with reflection.
+ *
  * @author Erik Wramner
  */
 public class AqObjectMessageAdapter implements ObjectMessageAdapter {
+    private final Method _getMethod;
+    private final Method _setMethod;
+
+    public AqObjectMessageAdapter() {
+        try {
+            Class<?> aqObjectMessageClass = Class.forName("oracle.jms.AQjmsObjectMessage");
+            _setMethod = aqObjectMessageClass.getMethod("setBytesData", byte[].class);
+            _getMethod = aqObjectMessageClass.getMethod("getBytesData");
+        }
+        catch (Exception e) {
+            throw new IllegalStateException(
+                "Unable to find AQjmsObjectMessage methods, verify that aqapi is in the class path", e);
+        }
+    }
 
     /**
      * {@inheritDoc}
      */
     @Override
     public void setObjectPayload(ObjectMessage msg, byte[] rawPayload) throws JMSException {
-        ((AQjmsObjectMessage) msg).setBytesData(rawPayload);
+        try {
+            _setMethod.invoke(msg, rawPayload);
+        }
+        catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            throw new JMSException("Failed to call AQjmsObjectMessage#setBytesData(byte[]) with reflection");
+        }
     }
 
     /**
@@ -41,6 +65,11 @@ public class AqObjectMessageAdapter implements ObjectMessageAdapter {
      */
     @Override
     public byte[] getObjectPayload(ObjectMessage msg) throws JMSException {
-        return ((AQjmsObjectMessage) msg).getBytesData();
+        try {
+            return (byte[]) _getMethod.invoke(msg);
+        }
+        catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            throw new JMSException("Failed to call AQjmsObjectMessage#getBytesData() with reflection");
+        }
     }
 }

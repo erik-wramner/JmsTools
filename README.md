@@ -29,7 +29,8 @@ to enqueue/dequeue without processing). Some of the options:
 * Prepared messages from a directory or random messages with a minimum and maximum size.
 * Outliers (large messages with a certain probability).
 * Delayed/scheduled messages (where supported).
-* Text and byte messages and partial support for object messages.
+* Text and byte messages, partial support for object messages and very partial support
+  for map messages.
 * Duration-based tests.
 * Count-based tests.
 * Configurable receive timeouts, polling delays, batch sizes, sleep times after each
@@ -45,5 +46,6 @@ Feel free to submit pull requests, bug reports or to ask for other improvements.
 Unfortunately Oracle keeps the Oracle JDBC drivers and the AQ JMS code private.
 I can't publish the jar files and I can't download them from the Maven repository.
 In order to use AQ you need to download the JDBC driver from Oracle and you need
-to grab the correct version of aqapi.jar from you Oracle database. Put them in
-AqJmsCommon/lib and you're good to go.
+to grab the correct version of aqapi.jar from you Oracle database. The AQ code
+uses reflection, so the jar files are not used at build time. They need to be
+included in the class path at runtime, though.
