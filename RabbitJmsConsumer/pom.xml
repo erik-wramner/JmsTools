@@ -8,7 +8,7 @@
     <version>1.4</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
-  <artifactId>AqJmsProducer</artifactId>
+  <artifactId>RabbitJmsConsumer</artifactId>
   <version>${parent.version}</version>
   <licenses>
     <license>
@@ -24,18 +24,13 @@
   <dependencies>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>AqJmsCommon</artifactId>
+      <artifactId>RabbitJmsCommon</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>JmsProducer</artifactId>
+      <artifactId>JmsConsumer</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <version>1.1.7</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -44,7 +39,7 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <description>JMS AQ message producer for performance tests.</description>
+  <description>JMS Rabbit MQ message consumer for performance tests.</description>
   <build>
     <plugins>
       <plugin>
@@ -55,7 +50,7 @@
           </descriptorRefs>
           <archive>
             <manifest>
-              <mainClass>name.wramner.jmstools.consumer.AqJmsProducer</mainClass>
+              <mainClass>name.wramner.jmstools.consumer.RabbitJmsConsumer</mainClass>
             </manifest>
           </archive>
         </configuration>

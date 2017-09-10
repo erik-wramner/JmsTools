@@ -45,7 +45,7 @@ public abstract class JmsConsumerConfiguration extends JmsClientConfiguration {
     private boolean _verifyChecksum;
 
     @Option(name = "-timeout", aliases = "--receive-timeout-ms", usage = "Receive timeout in milliseconds, 0 means no wait")
-    private int _receiveTimeoutMillis;
+    private int _receiveTimeoutMillis = 5_000;
 
     @Option(name = "-delay", aliases = "--polling-delay-ms", usage = "Sleep time in milliseconds before next attempt"
             + " when no message is returned")

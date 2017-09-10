@@ -5,7 +5,7 @@
   <groupId>name.wramner.jmstools</groupId>
   <artifactId>JmsTools</artifactId>
   <packaging>pom</packaging>
-  <version>1.3</version>
+  <version>1.4</version>
   <name>JmsTools</name>
   <licenses>
     <license>
@@ -39,6 +39,9 @@
     <module>AmqJmsCommon</module>
     <module>AmqJmsConsumer</module>
     <module>AmqJmsProducer</module>
+    <module>RabbitJmsCommon</module>
+    <module>RabbitJmsConsumer</module>
+    <module>RabbitJmsProducer</module>
     <module>LogAnalyzer</module>
   </modules>
   <description>JMS tools for tests and benchmarks.</description>

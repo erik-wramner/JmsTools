@@ -8,7 +8,7 @@
     <version>1.4</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
-  <artifactId>AqJmsProducer</artifactId>
+  <artifactId>RabbitJmsCommon</artifactId>
   <version>${parent.version}</version>
   <licenses>
     <license>
@@ -23,13 +23,13 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>name.wramner.jmstools</groupId>
-      <artifactId>AqJmsCommon</artifactId>
-      <version>${project.version}</version>
+      <groupId>com.rabbitmq.jms</groupId>
+      <artifactId>rabbitmq-jms</artifactId>
+      <version>1.7.0</version>
     </dependency>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>JmsProducer</artifactId>
+      <artifactId>JmsCommon</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -44,32 +44,6 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <description>JMS AQ message producer for performance tests.</description>
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <archive>
-            <manifest>
-              <mainClass>name.wramner.jmstools.consumer.AqJmsProducer</mainClass>
-            </manifest>
-          </archive>
-        </configuration>
-        <executions>
-          <execution>
-            <id>make-assembly</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
+  <description>JMS RabbitMQ common code.</description>
 </project>
 

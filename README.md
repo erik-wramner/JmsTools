@@ -17,10 +17,10 @@ as possible. Or at least the ones I need.
 
 ## Main features
 
-The current version includes a consumer and a producer for AQ JMS and ActiveMQ.
-They can run on any number of machines and as multiple processes in order to scale
-if the configurable number of threads is not enough (but usually it is - it is cheap
-to enqueue/dequeue without processing). Some of the options:
+The current version includes a consumer and a producer for AQ JMS, ActiveMQ and
+RabbitMQ. They can run on any number of machines and as multiple processes in order
+to scale if the configurable number of threads is not enough (but usually it is - it
+is cheap to enqueue/dequeue without processing). Some of the options:
 
 * Unique message identities that make it possible to find lost messages, duplicate
   messages and ghost messages, i.e. messages that are delivered even though they
@@ -36,7 +36,7 @@ to enqueue/dequeue without processing). Some of the options:
 * Configurable receive timeouts, polling delays, batch sizes, sleep times after each
   batch and much more.
 * Client-side producer flow control for AQ.
-* XA transactions (two-phase commits).
+* XA transactions (two-phase commits) where supported.
 * A log analyzer that helps make sense of the recorded test results.
 
 Feel free to submit pull requests, bug reports or to ask for other improvements.
