@@ -100,7 +100,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
                 if (!processMessages()) {
                     if (_abortOnError) {
                         _logger.error("Worker failed and abort on error configured, stopping!");
-                        break;
+                        _stopController.abort();
                     }
                     else {
                         recoverAfterException();

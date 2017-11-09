@@ -18,7 +18,7 @@ package name.wramner.jmstools.stopcontroller;
 /**
  * Stop controller that stops at once. Though not very useful in isolation it is good when multiple stop controllers are
  * combined. For example, first wait for nothing, then drain the queue.
- * 
+ *
  * @author Erik Wramner
  */
 public class InstantStopController implements StopController {
@@ -29,5 +29,9 @@ public class InstantStopController implements StopController {
 
     @Override
     public void waitForTimeoutOrDone(long timeToWaitMillis) {
+    }
+
+    @Override
+    public void abort() {
     }
 }

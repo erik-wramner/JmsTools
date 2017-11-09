@@ -17,21 +17,26 @@ package name.wramner.jmstools.stopcontroller;
 
 /**
  * A stop controller knows when the test is done and producers/consumers should stop.
- * 
+ *
  * @author Erik Wramner
  */
 public interface StopController {
     /**
      * Keep running or stop.
-     * 
+     *
      * @return true to keep running.
      */
     boolean keepRunning();
 
     /**
      * Wait for the specified time to elapse or return early when done.
-     * 
+     *
      * @param timeToWaitMillis The time to wait in milliseconds.
      */
     void waitForTimeoutOrDone(long timeToWaitMillis);
+
+    /**
+     * Make the controller abort, for example after an error.
+     */
+    void abort();
 }

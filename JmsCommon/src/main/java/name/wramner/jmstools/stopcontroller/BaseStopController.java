@@ -15,25 +15,28 @@
  */
 package name.wramner.jmstools.stopcontroller;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Base class for stop controllers that handles the task of waking waiting threads up when the sub-class signals that it
  * is time to stop by returning false from {@link #shouldKeepRunning()}.
- * 
+ *
  * @author Erik Wramner
  */
 public abstract class BaseStopController implements StopController {
     protected final Logger _logger = LoggerFactory.getLogger(getClass());
     private final Object _monitor = new Object();
+    private final AtomicBoolean _aborted = new AtomicBoolean(false);
 
     /**
      * {@inheritDoc}
      */
     @Override
     public boolean keepRunning() {
-        if (shouldKeepRunning()) {
+        if (!_aborted.get() && shouldKeepRunning()) {
             return true;
         }
         _logger.debug("Stop controller done, releasing waiting threads");
@@ -57,9 +60,21 @@ public abstract class BaseStopController implements StopController {
         }
     }
 
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void abort() {
+        if (!_aborted.getAndSet(true)) {
+            _logger.info("Stop controller aborted!");
+            releaseWaitingThreads();
+        }
+    }
+
     /**
      * Check if done.
-     * 
+     *
      * @return true to keep running, false when done.
      */
     protected abstract boolean shouldKeepRunning();
