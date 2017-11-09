@@ -89,6 +89,19 @@ public abstract class JmsClientConfiguration {
             "-xa" })
     private long _checkpointIntervalSeconds = DEFAULT_TM_CHECKPOINT_INTERVAL_SECONDS;
 
+    @Option(name = "-noretry", aliases = "--abort-on-errors", usage = "Abort on errors, do not try again")
+    private boolean _abortOnError;
+
+
+    /**
+     * Check if exit on errors is enabled or if we should retry (default).
+     *
+     * @return true to abort, false to keep trying.
+     */
+    public boolean isAbortOnErrorEnabled() {
+        return _abortOnError;
+    }
+
     /**
      * Get the number of threads to use.
      *

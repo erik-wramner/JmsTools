@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Base class for consumer and producer workers.
- * 
+ *
  * @author Erik Wramner
  * @param <T> The configuration class.
  */
@@ -58,11 +58,12 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
     private final boolean _rollbacksEnabled;
     private final double _rollbackProbability;
     private final List<String[]> _pendingLogEntries;
+    private final boolean _abortOnError;
     private OutputStream _os;
 
     /**
      * Constructor.
-     * 
+     *
      * @param resourceManagerFactory The resource manager factory.
      * @param counter The counter for processed messages.
      * @param stopController The stop controller.
@@ -82,12 +83,13 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
         }
         _pendingLogEntries = new ArrayList<String[]>();
         _objectMessageAdapter = config.getObjectMessageAdapter();
+        _abortOnError = config.isAbortOnErrorEnabled();
     }
 
     /**
      * Create output stream for message logging if enabled, then process messages as long as the stop controller wants
      * to keep running. If an exception occurs, sleep for a while before trying again. On unexpected exceptions, bail
-     * out.
+     * out. If the abort on error option has been selected, bail out on all errors.
      */
     @Override
     public void run() {
@@ -96,12 +98,20 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
             initMessageLogIfEnabled();
             while (_stopController.keepRunning()) {
                 if (!processMessages()) {
-                    recoverAfterException();
+                    if (_abortOnError) {
+                        _logger.error("Worker failed and abort on error configured, stopping!");
+                        break;
+                    }
+                    else {
+                        recoverAfterException();
+                    }
                 }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             _logger.error("Worker failed, aborting!", e);
-        } finally {
+        }
+        finally {
             cleanupMessageLog();
             _logger.debug("Worker stopped");
         }
@@ -109,7 +119,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Check if messages should be logged.
-     * 
+     *
      * @return true if logging is enabled.
      */
     protected boolean messageLogEnabled() {
@@ -118,7 +128,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Process messages until done (success) or until an error occurs.
-     * 
+     *
      * @return true on success.
      */
     private boolean processMessages() {
@@ -140,7 +150,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Process messages until the stop controller is satisfied or until an error occurs.
-     * 
+     *
      * @param resourceManager The resource manager for transaction control.
      * @throws JMSException on JMS errors.
      * @throws RollbackException when the XA resource has been rolled back.
@@ -152,14 +162,14 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Get header names for the detailed message log.
-     * 
+     *
      * @return header names.
      */
     protected abstract String[] getMessageLogHeaders();
 
     /**
      * Commit or roll back depending on the configured roll back probability.
-     * 
+     *
      * @param resourceManager the resource manager.
      * @param messageCount The number of messages to commit/roll back.
      * @throws JMSException on JMS errors.
@@ -182,7 +192,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Add fields for logging a consumed or produced message.
-     * 
+     *
      * @param fields The fields to log.
      */
     protected void logMessage(String... fields) {
@@ -202,7 +212,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     /**
      * Check if this transaction should be rolled back.
-     * 
+     *
      * @return true to roll back.
      */
     private boolean shouldRollback() {
