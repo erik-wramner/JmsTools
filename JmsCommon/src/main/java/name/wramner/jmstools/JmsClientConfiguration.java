@@ -39,13 +39,13 @@ public abstract class JmsClientConfiguration {
     private static final int DEFAULT_TM_RECOVERY_INTERVAL_SECONDS = 60;
 
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
-    protected int _threads = 1;
+    private int _threads = 1;
 
     @Option(name = "-queue", aliases = { "--queue-name" }, usage = "Queue name", forbids = "-topic")
-    protected String _queueName;
+    private String _queueName;
 
     @Option(name = "-topic", aliases = { "--topic-name" }, usage = "Topic name", forbids = "-queue")
-    protected String _topicName;
+    private String _topicName;
 
     @Option(name = "-count", aliases = { "--stop-after-messages" }, usage = "Total number of messages to process")
     protected Integer _stopAfterMessages;
@@ -54,28 +54,28 @@ public abstract class JmsClientConfiguration {
     protected Integer _durationMinutes;
 
     @Option(name = "-stats", aliases = "--log-statistics", usage = "Log statistics every minute")
-    protected boolean _stats = true;
+    private boolean _stats = true;
 
     @Option(name = "-rollback", aliases = "--rollback-percentage", usage = "Percentage to rollback rather than commit, decimals supported")
-    protected Double _rollbackPercentage;
+    private Double _rollbackPercentage;
 
     @Option(name = "-log", aliases = "--log-directory", usage = "Directory for detailed message logs, enables message logging")
-    protected File _logDirectory;
+    private File _logDirectory;
 
     @Option(name = "-xa", aliases = "--xa-transactions", usage = "Use XA (two-phase) transactions")
-    protected boolean _useXa;
+    private boolean _useXa;
 
     @Option(name = "-tmname", aliases = "--xa-tm-name", usage = "XA: The unique transaction manager name", depends = {
             "-xa" })
-    protected String _tmName;
+    private String _tmName;
 
     @Option(name = "-tmlogs", aliases = "--xa-tm-log-directory", usage = "XA: The path to the transaction manager logs", depends = {
             "-xa" }, forbids = { "-notmlog" })
-    protected File _xaLogBaseDir;
+    private File _xaLogBaseDir;
 
     @Option(name = "-jtatimeout", aliases = "--xa-jta-timeout-seconds", usage = "XA: The transaction timeout", depends = {
             "-xa" })
-    protected int _jtaTimeoutSeconds = DEFAULT_JTA_TIMEOUT_SECONDS;
+    private int _jtaTimeoutSeconds = DEFAULT_JTA_TIMEOUT_SECONDS;
 
     @Option(name = "-notmlog", aliases = "--xa-no-tm-log", usage = "XA: Disable transaction logs for raw performance", depends = {
             "-xa" }, forbids = { "-tmlogs" })
