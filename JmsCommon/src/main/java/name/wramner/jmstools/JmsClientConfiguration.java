@@ -54,7 +54,7 @@ public abstract class JmsClientConfiguration {
     protected Integer _durationMinutes;
 
     @Option(name = "-stats", aliases = "--log-statistics", usage = "Log statistics every minute")
-    private boolean _stats = true;
+    private boolean _stats;
 
     @Option(name = "-rollback", aliases = "--rollback-percentage", usage = "Percentage to rollback rather than commit, decimals supported")
     private Double _rollbackPercentage;
