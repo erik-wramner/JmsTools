@@ -32,7 +32,7 @@ import com.atomikos.icatch.config.UserTransactionServiceImp;
 /**
  * Base class for JMS producers and consumers with support for command line parsing and thread creation/joining. It also
  * initializes and stops the transaction manager for XA transactions if they are enabled.
- * 
+ *
  * @author Erik Wramner
  * @param <T> configuration class.
  */
@@ -56,10 +56,12 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
                 List<Thread> threads = createThreadsWithWorkers(config);
                 startThreads(threads);
                 waitForThreadsToComplete(threads);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 System.out.println("Failed with exception: " + e.getMessage());
                 e.printStackTrace(System.out);
-            } finally {
+            }
+            finally {
                 if (_userTransactionService != null) {
                     int maxWaitSeconds = config.getJtaTimeoutSeconds() + 10;
                     _userTransactionService.shutdown(TimeUnit.MILLISECONDS.convert(maxWaitSeconds, TimeUnit.SECONDS));
@@ -80,23 +82,24 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         Properties props = new Properties();
         if (config.isTmLogDisabled()) {
             props.setProperty("com.atomikos.icatch.enable_logging", "false");
-        } else {
-            props.setProperty("com.atomikos.icatch.checkpoint_interval", String.valueOf(TimeUnit.MILLISECONDS.convert(
-                    config.getCheckpointIntervalSeconds(), TimeUnit.SECONDS)));
-            props.setProperty("com.atomikos.icatch.recovery_delay", String.valueOf(TimeUnit.MILLISECONDS.convert(
-                    config.getRecoveryIntervalSeconds(), TimeUnit.SECONDS)));
+        }
+        else {
+            props.setProperty("com.atomikos.icatch.checkpoint_interval",
+                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getCheckpointIntervalSeconds(), TimeUnit.SECONDS)));
+            props.setProperty("com.atomikos.icatch.recovery_delay",
+                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getRecoveryIntervalSeconds(), TimeUnit.SECONDS)));
             if (config.getXaLogBaseDir() != null) {
                 props.setProperty("com.atomikos.icatch.log_base_dir", config.getXaLogBaseDir().getAbsolutePath());
             }
         }
         props.setProperty("com.atomikos.icatch.automatic_resource_registration", "true");
         props.setProperty("com.atomikos.icatch.max_actives", String.valueOf(config.getThreads() + 1));
-        String jtaTimeoutMillis = String.valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(),
-                TimeUnit.SECONDS));
+        String jtaTimeoutMillis = String
+            .valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(), TimeUnit.SECONDS));
         props.setProperty("com.atomikos.icatch.max_timeout", jtaTimeoutMillis);
         props.setProperty("com.atomikos.icatch.default_jta_timeout", jtaTimeoutMillis);
-        props.setProperty("com.atomikos.icatch.tm_unique_name", config.getTmName() != null ? config.getTmName()
-                : createTmName());
+        props.setProperty("com.atomikos.icatch.tm_unique_name",
+            config.getTmName() != null ? config.getTmName() : createTmName());
         return props;
     }
 
@@ -112,7 +115,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
 
     /**
      * Create configuration. Sub-classes should create provider-specific configuration classes.
-     * 
+     *
      * @return configuration.
      */
     protected abstract T createConfiguration();
@@ -128,7 +131,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
 
     /**
      * Parse the command line into the specified configuration.
-     * 
+     *
      * @param args The command line.
      * @param config The configuration class.
      * @return true if successful, false on errors such as missing arguments.
@@ -137,8 +140,9 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         CmdLineParser parser = new CmdLineParser(config);
         try {
             parser.parseArgument(args);
-            return true;
-        } catch (CmdLineException e) {
+            return isConfigurationValid(config);
+        }
+        catch (CmdLineException e) {
             printUsage(parser);
             System.out.println("Error: " + e.getMessage());
             return false;
@@ -146,15 +150,26 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
     }
 
     /**
+     * Check if configuration is valid and print error messages if not.
+     *
+     * @param config The configuration.
+     * @return true if valid, false to abort.
+     */
+    protected boolean isConfigurationValid(T config) {
+        return true;
+    }
+
+    /**
      * Wait for all threads to complete, exit if interrupted.
-     * 
+     *
      * @param threads The list with threads.
      */
     protected void waitForThreadsToComplete(List<Thread> threads) {
         for (Thread t : threads) {
             try {
                 t.join();
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 System.err.println("*** Interrupted - killing remaining threads!");
                 System.exit(0);
             }
@@ -163,7 +178,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
 
     /**
      * Start all threads.
-     * 
+     *
      * @param threads The list with threads to start.
      */
     protected void startThreads(List<Thread> threads) {
@@ -172,7 +187,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
 
     /**
      * Print usage. All supported options are listed.
-     * 
+     *
      * @param parser The parser.
      */
     protected void printUsage(CmdLineParser parser) {

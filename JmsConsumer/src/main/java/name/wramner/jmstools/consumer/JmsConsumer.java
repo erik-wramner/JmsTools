@@ -45,6 +45,15 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
     private static final String LOG_FILE_BASE_NAME = "dequeued_messages_";
 
     @Override
+    protected boolean isConfigurationValid(T config) {
+        if(config.getReceiveTimeoutMillis() == 0 && config.getPollingDelayMillis() == 0) {
+            System.out.println("Please specify a receive timeout or a polling delay!");
+            return false;
+        }
+        return true;
+    }
+
+    @Override
     protected List<Thread> createThreadsWithWorkers(T config) throws JMSException {
         Counter messageCounter = config.createMessageCounter();
         Counter receiveTimeoutCounter = config.createReceiveTimeoutCounter();
