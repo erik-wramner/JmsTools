@@ -15,7 +15,11 @@
  */
 package name.wramner.jmstools.producer;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -45,13 +49,13 @@ public class AqFlowController implements AutoCloseable, FlowController {
     private boolean _stop;
 
     public AqFlowController(String jdbcUrl, String jdbcUser, String jdbcPassword, int pauseAtDepth, int resumeAtDepth,
-            String queueName, int pollingIntervalSeconds) {
+                    String queueName, int pollingIntervalSeconds) {
         if (pauseAtDepth < 1) {
             throw new IllegalArgumentException("Pause depth must be > 0: " + pauseAtDepth);
         }
         if (resumeAtDepth >= pauseAtDepth) {
             throw new IllegalArgumentException("Resume depth (" + resumeAtDepth + ") must be less than pause depth ("
-                    + pauseAtDepth + ")");
+                            + pauseAtDepth + ")");
         }
         if (pollingIntervalSeconds < 1) {
             throw new IllegalArgumentException("Polling interval must be > 0: " + pollingIntervalSeconds);
@@ -88,9 +92,13 @@ public class AqFlowController implements AutoCloseable, FlowController {
     @Override
     public void sleepIfAboveLimit() {
         synchronized (_flowControlMonitor) {
-            if (_aboveLimit) {
+            if (_aboveLimit && !_stop) {
                 try {
-                    _flowControlMonitor.wait(MAX_SLEEP_TIME_MS);
+                    long endTime = System.currentTimeMillis() + MAX_SLEEP_TIME_MS;
+                    for (long sleepMillis = MAX_SLEEP_TIME_MS; _aboveLimit && sleepMillis > 0
+                                    && !_stop; sleepMillis = endTime - System.currentTimeMillis()) {
+                        _flowControlMonitor.wait(sleepMillis);
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
@@ -146,8 +154,10 @@ public class AqFlowController implements AutoCloseable, FlowController {
         private boolean waitForStopOrPollingDelay() {
             synchronized (_lifeCycleMonitor) {
                 try {
-                    if (!_stop) {
-                        _lifeCycleMonitor.wait(_pollingIntervalMillis);
+                    long endTime = System.currentTimeMillis() + _pollingIntervalMillis;
+                    for (long sleepMillis = _pollingIntervalMillis; !_stop
+                                    && sleepMillis > 0; sleepMillis = endTime - System.currentTimeMillis()) {
+                        _flowControlMonitor.wait(sleepMillis);
                     }
                 } catch (InterruptedException e) {
                     _logger.debug("Interrupted, stopping!", e);

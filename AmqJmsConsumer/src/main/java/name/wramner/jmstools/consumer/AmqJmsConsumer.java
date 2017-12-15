@@ -19,13 +19,13 @@ import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.XAConnectionFactory;
 
-import name.wramner.jmstools.consumer.AmqJmsConsumer.AmqConsumerConfiguration;
-import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
-import name.wramner.jmstools.messages.ObjectMessageAdapter;
-
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQXAConnectionFactory;
 import org.kohsuke.args4j.Option;
+
+import name.wramner.jmstools.consumer.AmqJmsConsumer.AmqConsumerConfiguration;
+import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
 
 /**
  * Command line JMS ActiveMQ message consumer intended for benchmarks and other tests.
@@ -68,6 +68,7 @@ public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
         @Option(name = "-pw", aliases = { "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = { "-user" })
         private String _password;
 
+        @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             if (_userName != null && _password != null) {
                 return new ActiveMQConnectionFactory(_userName, _password, _brokerUrl);
@@ -76,6 +77,7 @@ public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
             }
         }
 
+        @Override
         public XAConnectionFactory createXAConnectionFactory() throws JMSException {
             if (_userName != null && _password != null) {
                 return new ActiveMQXAConnectionFactory(_userName, _password, _brokerUrl);

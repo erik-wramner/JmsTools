@@ -47,6 +47,7 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
 
     private static final String LOG_FILE_BASE_NAME = "enqueued_messages_";
 
+    @Override
     protected List<Thread> createThreadsWithWorkers(T config) throws JMSException {
         MessageProvider messageProvider;
         try {

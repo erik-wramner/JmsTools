@@ -19,14 +19,15 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -108,7 +109,7 @@ public class LogAnalyzer {
 
     private void writeReport(File reportFile, String report) throws IOException, FileNotFoundException {
         try (OutputStream os = new BufferedOutputStream(new FileOutputStream(reportFile))) {
-            os.write(report.getBytes());
+            os.write(report.getBytes(Charset.defaultCharset()));
             os.flush();
         }
     }
@@ -169,7 +170,8 @@ public class LogAnalyzer {
     }
 
     private String generateGhostMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement(); ResultSet rs = stat.executeQuery("select * from ghost_messages")) {
+        try (Statement stat = conn.createStatement();
+             ResultSet rs = stat.executeQuery("select * from ghost_messages")) {
             if (rs.next()) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("<p>The messages below were sent, but rolled back. They should not have been delivered. They are ghosts.</p>");
@@ -196,7 +198,8 @@ public class LogAnalyzer {
     }
 
     private String generateUndeadMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement(); ResultSet rs = stat.executeQuery("select * from undead_messages")) {
+        try (Statement stat = conn.createStatement();
+             ResultSet rs = stat.executeQuery("select * from undead_messages")) {
             if (rs.next()) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("<p>The messages below were never sent (in this test), yet here they are.</p>");
@@ -377,7 +380,7 @@ public class LogAnalyzer {
         CmdLineParser parser = new CmdLineParser(config);
         try {
             parser.parseArgument(args);
-            if(config.getRemainingArguments() == null || config.getRemainingArguments().isEmpty()) {
+            if (config.getRemainingArguments() == null || config.getRemainingArguments().isEmpty()) {
                 printUsage(parser);
                 return false;
             } else {
@@ -426,9 +429,10 @@ public class LogAnalyzer {
 
     private void importEnqueuedFile(Connection conn, File file) throws IOException, SQLException {
         try (PreparedStatement stat = conn.prepareStatement("insert into produced_messages"
-                             + " (outcome, outcome_time, produced_time, application_id, payload_size, delay_seconds)"
-                             + " values (?, ?, ?, ?, ?, ?)");
-             BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                        + " (outcome, outcome_time, produced_time, application_id, payload_size, delay_seconds)"
+                        + " values (?, ?, ?, ?, ?, ?)");
+             BufferedReader reader = new BufferedReader(
+                             new InputStreamReader(new FileInputStream(file), Charset.defaultCharset()))) {
             // Skip header line
             reader.readLine();
             // Insert lines
@@ -450,9 +454,10 @@ public class LogAnalyzer {
 
     private void importDequeuedFile(Connection conn, File file) throws IOException, SQLException {
         try (PreparedStatement stat = conn.prepareStatement("insert into consumed_messages"
-                             + " (outcome, outcome_time, consumed_time, jms_id, application_id, payload_size)"
-                             + " values (?, ?, ?, ?, ?, ?)");
-             BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                        + " (outcome, outcome_time, consumed_time, jms_id, application_id, payload_size)"
+                        + " values (?, ?, ?, ?, ?, ?)");
+             BufferedReader reader = new BufferedReader(
+                             new InputStreamReader(new FileInputStream(file), Charset.defaultCharset()))) {
             // Skip header line
             reader.readLine();
             // Insert lines
@@ -479,8 +484,10 @@ public class LogAnalyzer {
     }
 
     private void createSchema(Connection conn) throws IOException, SqlToolError, SQLException {
+        // Note that the character set should match the encoding in pom.xml
+        Charset charset = Charset.forName("Cp1252");
         SqlFile sqlFile = new SqlFile(
-                        new InputStreamReader(LogAnalyzer.class.getResourceAsStream("/create_schema.sql")),
+                        new InputStreamReader(LogAnalyzer.class.getResourceAsStream("/create_schema.sql"), charset),
                         "create schema", null, null, false, null);
         sqlFile.setConnection(conn);
         sqlFile.setAutoClose(true);

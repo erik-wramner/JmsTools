@@ -22,13 +22,13 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.XAConnectionFactory;
 
-import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
-import name.wramner.jmstools.messages.ObjectMessageAdapter;
-import name.wramner.jmstools.producer.AmqJmsProducer.AmqProducerConfiguration;
-
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.ActiveMQXAConnectionFactory;
 import org.kohsuke.args4j.Option;
+
+import name.wramner.jmstools.messages.AmqObjectMessageAdapter;
+import name.wramner.jmstools.messages.ObjectMessageAdapter;
+import name.wramner.jmstools.producer.AmqJmsProducer.AmqProducerConfiguration;
 
 /**
  * Command line JMS ActiveMQ message producer intended for benchmarks and other tests.
@@ -48,7 +48,7 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
     }
 
     /**
-     * Create configuration specific to the AQ client.
+     * Create configuration specific to the AMQ client.
      * 
      * @return configuration instance.
      * @see name.wramner.jmstools.producer.JmsProducer#createConfiguration()
@@ -71,7 +71,9 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
         @Option(name = "-user", aliases = { "--jms-user" }, usage = "ActiveMQ user name if using authentication")
         private String _userName;
 
-        @Option(name = "-pw", aliases = { "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = { "-user" })
+        @Option(name = "-pw", aliases = {
+                        "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = {
+                                        "-user" })
         private String _password;
 
         @Override
@@ -80,7 +82,8 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
 
                 @Override
                 public void setDelayProperty(Message msg, int seconds) throws JMSException {
-                    msg.setLongProperty("AMQ_SCHEDULED_DELAY", TimeUnit.MILLISECONDS.convert(seconds, TimeUnit.SECONDS));
+                    msg.setLongProperty("AMQ_SCHEDULED_DELAY",
+                                    TimeUnit.MILLISECONDS.convert(seconds, TimeUnit.SECONDS));
                 }
             };
         }

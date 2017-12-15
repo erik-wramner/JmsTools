@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -31,14 +32,14 @@ import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import name.wramner.jmstools.counter.Counter;
 import name.wramner.jmstools.messages.ObjectMessageAdapter;
 import name.wramner.jmstools.rm.ResourceManager;
 import name.wramner.jmstools.rm.ResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Base class for consumer and producer workers.
@@ -76,7 +77,8 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
         _stopController = stopController;
         _messageCounter = counter;
         _logFile = logFile;
-        if (_rollbacksEnabled = config.getRollbackPercentage() != null) {
+        _rollbacksEnabled = config.getRollbackPercentage() != null;
+        if (_rollbacksEnabled) {
             _rollbackProbability = config.getRollbackPercentage().doubleValue() / 100.0;
         } else {
             _rollbackProbability = 0.0;
@@ -101,17 +103,14 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
                     if (_abortOnError) {
                         _logger.error("Worker failed and abort on error configured, stopping!");
                         _stopController.abort();
-                    }
-                    else {
+                    } else {
                         recoverAfterException();
                     }
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             _logger.error("Worker failed, aborting!", e);
-        }
-        finally {
+        } finally {
             cleanupMessageLog();
             _logger.debug("Worker stopped");
         }
@@ -157,8 +156,8 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
      * @throws HeuristicRollbackException when the XA resource has been rolled back heuristically.
      * @throws HeuristicMixedException when the XA resource has been rolled back OR committed.
      */
-    protected abstract void processMessages(ResourceManager resourceManager) throws RollbackException, JMSException,
-                    HeuristicMixedException, HeuristicRollbackException;
+    protected abstract void processMessages(ResourceManager resourceManager)
+                    throws RollbackException, JMSException, HeuristicMixedException, HeuristicRollbackException;
 
     /**
      * Get header names for the detailed message log.
@@ -178,8 +177,8 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
      * @throws HeuristicMixedException if a commit fails as the resource has been rolled back OR committed
      *         heuristically.
      */
-    protected void commitOrRollback(ResourceManager resourceManager, int messageCount) throws JMSException,
-                    RollbackException, HeuristicMixedException, HeuristicRollbackException {
+    protected void commitOrRollback(ResourceManager resourceManager, int messageCount)
+                    throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException {
         if (shouldRollback()) {
             resourceManager.rollback();
             logPendingMessagesRolledBack();
@@ -281,7 +280,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
 
     private void write(StringBuilder sb) {
         try {
-            _os.write(sb.toString().getBytes());
+            _os.write(sb.toString().getBytes(Charset.defaultCharset()));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

@@ -83,6 +83,7 @@ public class RabbitJmsProducer extends JmsProducer<RabbitProducerConfiguration> 
         @Option(name = "-port", aliases = { "--jms-port" }, usage = "Port for Rabbit MQ")
         private Integer _port;
 
+        @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             RMQConnectionFactory cf = new RMQConnectionFactory();
             if (_host != null) {
@@ -105,6 +106,7 @@ public class RabbitJmsProducer extends JmsProducer<RabbitProducerConfiguration> 
             return cf;
         }
 
+        @Override
         public XAConnectionFactory createXAConnectionFactory() throws JMSException {
             throw new JMSException("RabbitMQ does not support JMS XA connections");
         }

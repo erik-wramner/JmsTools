@@ -5,7 +5,7 @@
   <parent>
     <groupId>name.wramner.jmstools</groupId>
     <artifactId>JmsTools</artifactId>
-    <version>1.5</version>
+    <version>1.6-SNAPSHOT</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
   <artifactId>AqJmsConsumer</artifactId>

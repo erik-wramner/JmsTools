@@ -49,17 +49,20 @@ public abstract class BaseStopController implements StopController {
      */
     @Override
     public void waitForTimeoutOrDone(long timeToWaitMillis) {
-        synchronized (_monitor) {
-            try {
-                if (keepRunning()) {
-                    _monitor.wait(timeToWaitMillis);
+        if (timeToWaitMillis > 0) {
+            long endTime = System.currentTimeMillis() + timeToWaitMillis;
+            synchronized (_monitor) {
+                try {
+                    while (timeToWaitMillis > 0L && keepRunning()) {
+                        _monitor.wait(timeToWaitMillis);
+                        timeToWaitMillis = endTime - System.currentTimeMillis();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
             }
         }
     }
-
 
     /**
      * {@inheritDoc}

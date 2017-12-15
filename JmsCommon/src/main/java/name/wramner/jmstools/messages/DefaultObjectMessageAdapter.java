@@ -39,15 +39,14 @@ public class DefaultObjectMessageAdapter implements ObjectMessageAdapter {
      * @param rawPayload The payload in raw format.
      * @throws JMSException on errors.
      */
+    @Override
     public void setObjectPayload(ObjectMessage msg, byte[] rawPayload) throws JMSException {
         try (ByteArrayInputStream bis = new ByteArrayInputStream(rawPayload);
-                ObjectInputStream ois = new ObjectInputStream(bis)) {
+             ObjectInputStream ois = new ObjectInputStream(bis)) {
             msg.setObject((Serializable) ois.readObject());
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new JMSException(e.getMessage());
-        }
-        catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException e) {
             throw new JMSException(e.getMessage());
         }
     }
@@ -59,14 +58,14 @@ public class DefaultObjectMessageAdapter implements ObjectMessageAdapter {
      * @return payload as raw bytes.
      * @throws JMSException on errors.
      */
+    @Override
     public byte[] getObjectPayload(ObjectMessage msg) throws JMSException {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+             ObjectOutputStream oos = new ObjectOutputStream(bos)) {
             oos.writeObject(msg.getObject());
             oos.flush();
             return bos.toByteArray();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new JMSException(e.getMessage());
         }
     }
