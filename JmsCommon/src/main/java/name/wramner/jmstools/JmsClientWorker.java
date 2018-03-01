@@ -60,6 +60,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
     private final double _rollbackProbability;
     private final List<String[]> _pendingLogEntries;
     private final boolean _abortOnError;
+    private final long _commitDelayMillis;
     private OutputStream _os;
 
     /**
@@ -86,6 +87,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
         _pendingLogEntries = new ArrayList<String[]>();
         _objectMessageAdapter = config.getObjectMessageAdapter();
         _abortOnError = config.isAbortOnErrorEnabled();
+        _commitDelayMillis = config.getCommitDelayMillis() != null ? config.getCommitDelayMillis().longValue() : 0L;
     }
 
     /**
@@ -179,6 +181,9 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
      */
     protected void commitOrRollback(ResourceManager resourceManager, int messageCount)
                     throws JMSException, RollbackException, HeuristicMixedException, HeuristicRollbackException {
+        if (_commitDelayMillis > 0L) {
+            _stopController.waitForTimeoutOrDone(_commitDelayMillis);
+        }
         if (shouldRollback()) {
             resourceManager.rollback();
             logPendingMessagesRolledBack();

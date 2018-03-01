@@ -53,6 +53,10 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-duration", aliases = { "--duration-minutes" }, usage = "Duration to run in minutes")
     protected Integer _durationMinutes;
 
+    @Option(name = "-commitdelay", aliases = {
+            "--commit-delay-millis" }, usage = "Optional delay in ms before commit/rollback")
+    protected Integer _commitDelayMillis;
+
     @Option(name = "-stats", aliases = "--log-statistics", usage = "Log statistics every minute")
     private boolean _stats;
 
@@ -257,5 +261,14 @@ public abstract class JmsClientConfiguration {
      */
     public ObjectMessageAdapter getObjectMessageAdapter() {
         return new DefaultObjectMessageAdapter();
+    }
+
+    /**
+     * Get the commit (or rollback) delay in milliseconds.
+     * 
+     * @return delay or null.
+     */
+    public Integer getCommitDelayMillis() {
+        return _commitDelayMillis;
     }
 }
