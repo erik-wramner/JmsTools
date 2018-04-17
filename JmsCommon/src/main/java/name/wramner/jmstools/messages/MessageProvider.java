@@ -21,13 +21,15 @@ import javax.jms.Session;
 
 /**
  * A message provider can create JMS messages enriched with a checksum property that can be checked on the other side.
+ * <p>
+ * Note that according to the JMS standard property names must follow the same rules as Java identifiers.
  * 
  * @author Erik Wramner
  */
 public interface MessageProvider {
-    static final String UNIQUE_MESSAGE_ID_PROPERTY_NAME = "Unique-Message-Id";
-    static final String CHECKSUM_PROPERTY_NAME = "Payload-Checksum-MD5";
-    static final String LENGTH_PROPERTY_NAME = "Payload-Length";
+    static final String UNIQUE_MESSAGE_ID_PROPERTY_NAME = "EWJMSToolsUniqueMessageId";
+    static final String CHECKSUM_PROPERTY_NAME = "EWJMSToolsPayloadChecksumMD5";
+    static final String LENGTH_PROPERTY_NAME = "EWJMSToolsPayloadLength";
 
     /**
      * Create message with checksum and length properties.
