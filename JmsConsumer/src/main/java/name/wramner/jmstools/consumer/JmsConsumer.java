@@ -59,10 +59,11 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
         Counter receiveTimeoutCounter = config.createReceiveTimeoutCounter();
         StopController stopController = config.createStopController(messageCounter, receiveTimeoutCounter);
         ResourceManagerFactory resourceManagerFactory = config.useXa()
-                ? new XAJmsResourceManagerFactory(new UserTransactionManager(), config.createXAConnectionFactory(),
-                    config.getDestinationName(), config.isDestinationTypeQueue())
-                : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
-                    config.isDestinationTypeQueue());
+                        ? new XAJmsResourceManagerFactory(new UserTransactionManager(),
+                                        config.createXAConnectionFactory(), config.getDestinationName(),
+                                        config.isDestinationTypeQueue())
+                        : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
+                                        config.isDestinationTypeQueue(), !config.isNonTransactional());
         List<Thread> threads = createThreads(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
             stopController, config);
         if (config.isStatisticsEnabled()) {

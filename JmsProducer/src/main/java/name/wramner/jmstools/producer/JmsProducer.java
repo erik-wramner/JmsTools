@@ -62,7 +62,7 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
                 ? new XAJmsResourceManagerFactory(new UserTransactionManager(), config.createXAConnectionFactory(),
                     config.getDestinationName(), config.isDestinationTypeQueue())
                 : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
-                    config.isDestinationTypeQueue());
+                    config.isDestinationTypeQueue(), !config.isNonTransactional());
         List<Thread> threads = createThreads(resourceManagerFactory, counter, stopController, messageProvider, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, counter), "StatisticsLogger"));

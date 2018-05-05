@@ -29,6 +29,7 @@ import javax.jms.Session;
  */
 public class JmsResourceManager extends ResourceManager {
     private final ConnectionFactory _connFactory;
+    private final boolean _transaction;
     private Connection _conn;
     private Session _session;
 
@@ -38,10 +39,13 @@ public class JmsResourceManager extends ResourceManager {
      * @param connFactory The JMS connection factory.
      * @param queueName The queue name.
      * @param destinationTypeQueue The destination type flag.
+     * @param transaction The flag to use transactions.
      */
-    public JmsResourceManager(ConnectionFactory connFactory, String queueName, boolean destinationTypeQueue) {
+    public JmsResourceManager(ConnectionFactory connFactory, String queueName, boolean destinationTypeQueue,
+                    boolean transaction) {
         super(queueName, destinationTypeQueue);
         _connFactory = connFactory;
+        _transaction = transaction;
     }
 
     /**
@@ -61,7 +65,7 @@ public class JmsResourceManager extends ResourceManager {
         Session session = getSession();
         _conn.start();
         MessageConsumer consumer = session
-            .createConsumer(getDestination(session, _destinationName, _destinationTypeQueue));
+                        .createConsumer(getDestination(session, _destinationName, _destinationTypeQueue));
         return consumer;
     }
 
@@ -74,7 +78,8 @@ public class JmsResourceManager extends ResourceManager {
             if (_conn == null) {
                 _conn = _connFactory.createConnection();
             }
-            _session = _conn.createSession(true, Session.SESSION_TRANSACTED);
+            _session = _transaction ? _conn.createSession(true, Session.SESSION_TRANSACTED)
+                            : _conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
         }
         return _session;
     }
@@ -92,7 +97,7 @@ public class JmsResourceManager extends ResourceManager {
      */
     @Override
     public void commit() throws JMSException {
-        if (_session != null) {
+        if (_transaction && _session != null) {
             _session.commit();
         }
     }
@@ -102,7 +107,7 @@ public class JmsResourceManager extends ResourceManager {
      */
     @Override
     public void rollback() throws JMSException {
-        if (_session != null) {
+        if (_transaction && _session != null) {
             _session.rollback();
         }
     }
