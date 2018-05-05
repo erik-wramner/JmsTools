@@ -43,6 +43,7 @@
     <module>RabbitJmsConsumer</module>
     <module>RabbitJmsProducer</module>
     <module>QpidJmsCommon</module>
+    <module>QpidJmsConsumer</module>
     <module>QpidJmsProducer</module>
     <module>LogAnalyzer</module>
   </modules>
