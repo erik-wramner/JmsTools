@@ -59,8 +59,8 @@ public class StatisticsLogger implements Runnable {
         try {
             int[] prevCounts = new int[_counters.size()];
             StringBuilder sb = new StringBuilder(80);
-            _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
             while (_stopController.keepRunning()) {
+                _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
                 for (int i = 0; i < prevCounts.length; i++) {
                     int count = _counters.get(i).getCount();
                     if (i > 0) {
@@ -70,9 +70,7 @@ public class StatisticsLogger implements Runnable {
                     prevCounts[i] = count;
                 }
                 _statisticsLogger.info(sb.toString());
-
                 sb.setLength(0);
-                _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
             }
         } finally {
             _logger.debug("Statistics logger stopped.");
