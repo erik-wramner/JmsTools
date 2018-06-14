@@ -8,7 +8,7 @@
     <version>1.7</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
-  <artifactId>RabbitJmsConsumer</artifactId>
+  <artifactId>WmqJmsCommon</artifactId>
   <version>${parent.version}</version>
   <licenses>
     <license>
@@ -23,14 +23,19 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>name.wramner.jmstools</groupId>
-      <artifactId>RabbitJmsCommon</artifactId>
-      <version>${project.version}</version>
+      <groupId>com.ibm.mq</groupId>
+      <artifactId>com.ibm.mq.allclient</artifactId>
+      <version>9.0.5.0</version>
     </dependency>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>JmsConsumer</artifactId>
+      <artifactId>JmsCommon</artifactId>
       <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.1.7</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -39,32 +44,6 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <description>JMS Rabbit MQ message consumer for performance tests.</description>
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <archive>
-            <manifest>
-              <mainClass>name.wramner.jmstools.consumer.RabbitJmsConsumer</mainClass>
-            </manifest>
-          </archive>
-        </configuration>
-        <executions>
-          <execution>
-            <id>make-assembly</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
+  <description>IBM/WebSphere MQ common code.</description>
 </project>
 

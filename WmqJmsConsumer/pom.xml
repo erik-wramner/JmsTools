@@ -8,7 +8,7 @@
     <version>1.7</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
-  <artifactId>RabbitJmsConsumer</artifactId>
+  <artifactId>WmqJmsConsumer</artifactId>
   <version>${parent.version}</version>
   <licenses>
     <license>
@@ -24,7 +24,7 @@
   <dependencies>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>RabbitJmsCommon</artifactId>
+      <artifactId>WmqJmsCommon</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -39,7 +39,7 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <description>JMS Rabbit MQ message consumer for performance tests.</description>
+  <description>JMS IBM (WebSphere) MQ message consumer for performance tests.</description>
   <build>
     <plugins>
       <plugin>
@@ -50,7 +50,7 @@
           </descriptorRefs>
           <archive>
             <manifest>
-              <mainClass>name.wramner.jmstools.consumer.RabbitJmsConsumer</mainClass>
+              <mainClass>name.wramner.jmstools.consumer.WmqJmsConsumer</mainClass>
             </manifest>
           </archive>
         </configuration>

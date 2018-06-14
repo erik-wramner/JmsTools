@@ -5,7 +5,7 @@
   <groupId>name.wramner.jmstools</groupId>
   <artifactId>JmsTools</artifactId>
   <packaging>pom</packaging>
-  <version>1.7-SNAPSHOT</version>
+  <version>1.7</version>
   <name>JmsTools</name>
   <licenses>
     <license>
@@ -45,6 +45,9 @@
     <module>QpidJmsCommon</module>
     <module>QpidJmsConsumer</module>
     <module>QpidJmsProducer</module>
+    <module>WmqJmsCommon</module>
+    <module>WmqJmsConsumer</module>
+    <module>WmqJmsProducer</module>
     <module>LogAnalyzer</module>
   </modules>
   <description>JMS tools for tests and benchmarks.</description>
