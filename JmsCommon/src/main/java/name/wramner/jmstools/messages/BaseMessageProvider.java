@@ -49,6 +49,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     protected final Random _random = new Random();
     private final List<T> _messageDataList = new ArrayList<>();
     private final List<Map<String, String>> _messageHeaderList = new ArrayList<>();
+    private final Map<String, String> _commonHeaders;
     private final boolean _ordered;
     private final boolean _noDuplicates;
     private final AtomicInteger _messageIndex = new AtomicInteger(0);
@@ -56,16 +57,34 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     private final int _outlierSize;
 
     /**
+     * Constructor for single message.
+     * 
+     * @param messageData The message data.
+     * @param headers The headers.
+     * @param noDuplicates The flag to stop rather than returning the message twice.
+     */
+    protected BaseMessageProvider(T messageData, Map<String, String> headers, boolean noDuplicates) {
+        _messageDataList.add(messageData);
+        _messageHeaderList.add(Collections.emptyMap());
+        _commonHeaders = headers;
+        _ordered = true;
+        _noDuplicates = noDuplicates;
+        _outlierPercentage = null;
+        _outlierSize = 0;
+    }
+
+    /**
      * Constructor for prepared messages.
      *
      * @param fileOrDirectory The single file or the directory containing files.
      * @param encoding The character encoding.
+     * @param commonHeaders The JMS headers to use for all messages.
      * @param ordered The flag to send messages in order or randomly.
      * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on read errors.
      */
-    protected BaseMessageProvider(File fileOrDirectory, String encoding, boolean ordered, boolean noDuplicates)
-            throws IOException {
+    protected BaseMessageProvider(File fileOrDirectory, String encoding, Map<String, String> commonHeaders,
+                    boolean ordered, boolean noDuplicates) throws IOException {
         if (fileOrDirectory.isDirectory()) {
             File[] files = fileOrDirectory.listFiles();
             Arrays.sort(files);
@@ -74,10 +93,10 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
                     readPayloadAndHeaders(f, Charset.forName(encoding));
                 }
             }
-        }
-        else {
+        } else {
             readPayloadAndHeaders(fileOrDirectory, Charset.forName(encoding));
         }
+        _commonHeaders = commonHeaders;
         _ordered = ordered;
         _outlierPercentage = null;
         _outlierSize = 0;
@@ -92,9 +111,10 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
      * @param numberOfMessages The number of messages to generate.
      * @param outlierPercentage The outlier percentage or null.
      * @param outlierSize The outlier size.
+     * @param commonHeaders The JMS headers to use for all messages.
      */
     protected BaseMessageProvider(int minSize, int maxSize, int numberOfMessages, Double outlierPercentage,
-            int outlierSize) {
+                    int outlierSize, Map<String, String> commonHeaders) {
         if (maxSize < minSize) {
             throw new IllegalArgumentException("Max size must be >= min size");
         }
@@ -110,6 +130,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
                 size = Math.min(size + step, maxSize);
             }
         }
+        _commonHeaders = commonHeaders;
         _ordered = false;
         _outlierPercentage = outlierPercentage;
         _outlierSize = outlierSize;
@@ -143,8 +164,8 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     protected abstract Message createMessageWithPayload(Session session, T messageData) throws JMSException;
 
     /**
-     * Create a JMS message for the specified session with a prepared payload and possibly prepared JMS
-     * properties and/or checksum and length properties..
+     * Create a JMS message for the specified session with a prepared payload and possibly prepared JMS properties
+     * and/or checksum and length properties..
      *
      * @param session The session.
      * @param addIntegrityProperties The flag to add integrity properties.
@@ -153,14 +174,13 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
      */
     @Override
     public Message createMessageWithPayloadAndProperties(Session session, boolean addIntegrityProperties)
-            throws JMSException {
+                    throws JMSException {
         T messageData;
         Map<String, String> headers;
         if (_outlierPercentage != null && _random.nextDouble() < (_outlierPercentage.doubleValue() / 100.0)) {
             messageData = createRandomMessageData(_outlierSize);
             headers = Collections.emptyMap();
-        }
-        else {
+        } else {
             int index = getNextMessageDataIndex();
             if (index < 0) {
                 // No duplicates and all messages returned once
@@ -172,6 +192,11 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         Message msg = createMessageWithPayload(session, messageData);
         for (Entry<String, String> entry : headers.entrySet()) {
             msg.setStringProperty(entry.getKey(), entry.getValue());
+        }
+        if (_commonHeaders != null) {
+            for (Entry<String, String> entry : _commonHeaders.entrySet()) {
+                msg.setStringProperty(entry.getKey(), entry.getValue());
+            }
         }
         if (addIntegrityProperties) {
             msg.setStringProperty(CHECKSUM_PROPERTY_NAME, messageData.getChecksum());
@@ -189,8 +214,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
             }
             return index % numberOfMessages;
 
-        }
-        else {
+        } else {
             return _random.nextInt(numberOfMessages);
         }
     }
@@ -199,10 +223,9 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         String name = file.getName();
         if (name.endsWith(".payload")) {
             _messageDataList.add(createMessageData(Files.readAllBytes(file.toPath()), encoding));
-            _messageHeaderList.add(readHeaders(
-                new File(file.getParentFile(), name.substring(0, name.length() - ".payload".length()) + ".headers")));
-        }
-        else if (!name.endsWith(".headers")) {
+            _messageHeaderList.add(readHeaders(new File(file.getParentFile(),
+                            name.substring(0, name.length() - ".payload".length()) + ".headers")));
+        } else if (!name.endsWith(".headers")) {
             _messageDataList.add(createMessageData(Files.readAllBytes(file.toPath()), encoding));
             _messageHeaderList.add(Collections.emptyMap());
         }
@@ -219,8 +242,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
                 }
                 return headerMap;
             }
-        }
-        else {
+        } else {
             return Collections.emptyMap();
         }
     }

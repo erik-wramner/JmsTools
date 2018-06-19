@@ -18,6 +18,8 @@ package name.wramner.jmstools.messages;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Collections;
+import java.util.Map;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -32,16 +34,29 @@ import javax.jms.TextMessage;
 public class TextMessageProvider extends BaseMessageProvider<TextMessageData> {
 
     /**
+     * Constructor for single prepared message.
+     * 
+     * @param data The data.
+     * @param headers The headers.
+     * @param noDuplicates The flag to stop instead of returning the same message twice.
+     */
+    public TextMessageProvider(String data, Map<String, String> headers, boolean noDuplicates) {
+        super(new TextMessageData(data), Collections.emptyMap(), noDuplicates);
+    }
+
+    /**
      * Constructor for prepared messages.
      *
      * @param directory The message directory.
      * @param encoding The encoding for the files.
+     * @param commonHeaders The JMS headers common to all messages.
      * @param ordered The flag to send messages in alphabetical order or in random order.
      * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on failure to read files.
      */
-    public TextMessageProvider(File directory, String encoding, boolean ordered, boolean noDuplicates) throws IOException {
-        super(directory, encoding, ordered, noDuplicates);
+    public TextMessageProvider(File directory, String encoding, Map<String, String> commonHeaders, boolean ordered,
+                    boolean noDuplicates) throws IOException {
+        super(directory, encoding, null, ordered, noDuplicates);
     }
 
     /**
@@ -52,9 +67,11 @@ public class TextMessageProvider extends BaseMessageProvider<TextMessageData> {
      * @param numberOfMessages The number of messages to prepare.
      * @param outlierPercentage The percentage of messages outside the normal range.
      * @param outlierSize The size of the messages outside the range, typically very large.
+     * @param commonHeaders The JMS headers common to all messages.
      */
-    public TextMessageProvider(int minSize, int maxSize, int numberOfMessages, Double outlierPercentage, int outlierSize) {
-        super(minSize, maxSize, numberOfMessages, outlierPercentage, outlierSize);
+    public TextMessageProvider(int minSize, int maxSize, int numberOfMessages, Double outlierPercentage,
+                    int outlierSize, Map<String, String> commonHeaders) {
+        super(minSize, maxSize, numberOfMessages, outlierPercentage, outlierSize, commonHeaders);
     }
 
     /**

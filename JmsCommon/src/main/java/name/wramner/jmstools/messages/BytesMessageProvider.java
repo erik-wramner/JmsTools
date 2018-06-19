@@ -18,6 +18,7 @@ package name.wramner.jmstools.messages;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Map;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
@@ -35,12 +36,14 @@ public class BytesMessageProvider extends BaseMessageProvider<BytesMessageData> 
      *
      * @param directory The message directory.
      * @param encoding The encoding (not really used, passed to superclass).
+     * @param commonHeaders The JMS headers common to all messages.
      * @param ordered The flag to send messages in alphabetical order or in random order.
      * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on failure to read files.
      */
-    public BytesMessageProvider(File directory, String encoding, boolean ordered, boolean noDuplicates) throws IOException {
-        super(directory, encoding, ordered, noDuplicates);
+    public BytesMessageProvider(File directory, String encoding, Map<String, String> commonHeaders, boolean ordered,
+                    boolean noDuplicates) throws IOException {
+        super(directory, encoding, commonHeaders, ordered, noDuplicates);
     }
 
     /**
@@ -51,10 +54,11 @@ public class BytesMessageProvider extends BaseMessageProvider<BytesMessageData> 
      * @param numberOfMessages The number of messages to prepare.
      * @param outlierPercentage The percentage of messages outside the normal range.
      * @param outlierSize The size of the messages outside the range, typically very large.
+     * @param commonHeaders The JMS headers common to all messages.
      */
     public BytesMessageProvider(int minSize, int maxSize, int numberOfMessages, Double outlierPercentage,
-                    int outlierSize) {
-        super(minSize, maxSize, numberOfMessages, outlierPercentage, outlierSize);
+                    int outlierSize, Map<String, String> commonHeaders) {
+        super(minSize, maxSize, numberOfMessages, outlierPercentage, outlierSize, commonHeaders);
     }
 
     /**

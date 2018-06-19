@@ -18,6 +18,7 @@ package name.wramner.jmstools.messages;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Map;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -37,13 +38,14 @@ public class ObjectMessageProvider extends BaseMessageProvider<BytesMessageData>
      *
      * @param directory The message directory.
      * @param adapter The object message adapter.
+     * @param commonHeaders The JMS headers common to all messages.
      * @param ordered The flag to send messages in alphabetical order or in random order.
      * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on failure to read files.
      */
-    public ObjectMessageProvider(File directory, ObjectMessageAdapter adapter, boolean ordered, boolean noDuplicates)
-            throws IOException {
-        super(directory, "UTF-8", ordered, noDuplicates);
+    public ObjectMessageProvider(File directory, ObjectMessageAdapter adapter, Map<String, String> commonHeaders,
+                    boolean ordered, boolean noDuplicates) throws IOException {
+        super(directory, "UTF-8", commonHeaders, ordered, noDuplicates);
         _adapter = adapter;
     }
 
