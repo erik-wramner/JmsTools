@@ -32,11 +32,12 @@ public interface MessageProvider {
     static final String LENGTH_PROPERTY_NAME = "EWJMSToolsPayloadLength";
 
     /**
-     * Create message with checksum and length properties.
+     * Create message with payload and properties, optionally with checksum and length properties added.
      *
      * @param session The JMS session.
+     * @param addIntegrityProperties The flag to add checksum and length properties.
      * @return message.
      * @throws JMSException on JMS errors.
      */
-    Message createMessageWithPayloadAndChecksumProperty(Session session) throws JMSException;
+    Message createMessageWithPayloadAndProperties(Session session, boolean addIntegrityProperties) throws JMSException;
 }

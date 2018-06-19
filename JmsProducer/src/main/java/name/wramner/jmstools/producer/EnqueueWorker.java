@@ -98,8 +98,8 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
 
             int numberOfMessages = 0;
             for (int i = 0; i < _messagesPerBatch; i++) {
-                Message message = _messageProvider
-                    .createMessageWithPayloadAndChecksumProperty(resourceManager.getSession());
+                Message message = _messageProvider.createMessageWithPayloadAndProperties(resourceManager.getSession(),
+                    _idAndChecksumEnabled);
                 if (message == null) {
                     // Handle race condition between threads when sending prepared messages once
                     break;

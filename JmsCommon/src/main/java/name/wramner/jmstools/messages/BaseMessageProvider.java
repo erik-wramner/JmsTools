@@ -64,7 +64,8 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
      * @param noDuplicates The flag to stop rather than returning the same message twice.
      * @throws IOException on read errors.
      */
-    protected BaseMessageProvider(File fileOrDirectory, String encoding, boolean ordered, boolean noDuplicates) throws IOException {
+    protected BaseMessageProvider(File fileOrDirectory, String encoding, boolean ordered, boolean noDuplicates)
+            throws IOException {
         if (fileOrDirectory.isDirectory()) {
             File[] files = fileOrDirectory.listFiles();
             Arrays.sort(files);
@@ -142,15 +143,17 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
     protected abstract Message createMessageWithPayload(Session session, T messageData) throws JMSException;
 
     /**
-     * Create a JMS message for the specified session with a prepared payload and a checksum and
-     * possibly prepared JMS properties.
+     * Create a JMS message for the specified session with a prepared payload and possibly prepared JMS
+     * properties and/or checksum and length properties..
      *
      * @param session The session.
+     * @param addIntegrityProperties The flag to add integrity properties.
      * @return message.
      * @throws JMSException on errors.
      */
     @Override
-    public Message createMessageWithPayloadAndChecksumProperty(Session session) throws JMSException {
+    public Message createMessageWithPayloadAndProperties(Session session, boolean addIntegrityProperties)
+            throws JMSException {
         T messageData;
         Map<String, String> headers;
         if (_outlierPercentage != null && _random.nextDouble() < (_outlierPercentage.doubleValue() / 100.0)) {
@@ -159,7 +162,7 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         }
         else {
             int index = getNextMessageDataIndex();
-            if(index < 0) {
+            if (index < 0) {
                 // No duplicates and all messages returned once
                 return null;
             }
@@ -170,21 +173,24 @@ public abstract class BaseMessageProvider<T extends ChecksummedMessageData> impl
         for (Entry<String, String> entry : headers.entrySet()) {
             msg.setStringProperty(entry.getKey(), entry.getValue());
         }
-        msg.setStringProperty(CHECKSUM_PROPERTY_NAME, messageData.getChecksum());
-        msg.setIntProperty(LENGTH_PROPERTY_NAME, messageData.getLength());
+        if (addIntegrityProperties) {
+            msg.setStringProperty(CHECKSUM_PROPERTY_NAME, messageData.getChecksum());
+            msg.setIntProperty(LENGTH_PROPERTY_NAME, messageData.getLength());
+        }
         return msg;
     }
 
     private int getNextMessageDataIndex() {
         int numberOfMessages = _messageDataList.size();
-        if(_ordered) {
+        if (_ordered) {
             int index = _messageIndex.incrementAndGet();
-            if(_noDuplicates && index > numberOfMessages) {
+            if (_noDuplicates && index > numberOfMessages) {
                 return -1;
             }
             return index % numberOfMessages;
 
-        } else {
+        }
+        else {
             return _random.nextInt(numberOfMessages);
         }
     }
