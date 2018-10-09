@@ -163,7 +163,8 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
             saveMessageHeaders(msg, baseName);
         }
         catch (IOException e) {
-            _logger.error("Failed to save message!", e);
+            _logger.error("Failed to save message payload", e);
+            throw new JMSException("Failed to save message " + msg.getJMSMessageID() + ": " + e.getMessage());
         }
     }
 
@@ -206,13 +207,15 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
                 payload = bos.toByteArray();
             }
             else if (msg instanceof StreamMessage) {
-                _logger.warn("Can't save payload for {}, stream messages not supported!", msg.getJMSMessageID());
-                payload = new byte[0];
+                _logger.error("Can't save payload for {}, stream messages not supported!", msg.getJMSMessageID());
+                throw new JMSException(
+                    "Can't save payload for " + msg.getJMSMessageID() + ", stream messages not supported!");
             }
             else {
-                _logger.warn("Can't save payload for {}, unsupported type {}!", msg.getJMSMessageID(),
+                _logger.error("Can't save payload for {}, unsupported type {}!", msg.getJMSMessageID(),
                     msg.getClass().getName());
-                payload = new byte[0];
+                throw new JMSException("Can't save payload for " + msg.getJMSMessageID() + ", unsupported type "
+                        + msg.getClass().getName());
             }
             fos.write(payload);
             fos.flush();
