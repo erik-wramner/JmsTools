@@ -102,7 +102,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Check if running without transactions.
-     * 
+     *
      * @return true to disable commit/rollback support.
      */
     public boolean isNonTransactional() {
@@ -170,6 +170,9 @@ public abstract class JmsClientConfiguration {
      * @return log directory.
      */
     public File getLogDirectory() {
+        if(_logDirectory != null) {
+            _logDirectory.mkdirs();
+        }
         return _logDirectory;
     }
 
@@ -277,7 +280,7 @@ public abstract class JmsClientConfiguration {
 
     /**
      * Get the commit (or rollback) delay in milliseconds.
-     * 
+     *
      * @return delay or null.
      */
     public Integer getCommitDelayMillis() {

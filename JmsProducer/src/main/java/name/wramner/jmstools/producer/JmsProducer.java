@@ -73,11 +73,12 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter counter,
             StopController stopController, MessageProvider messageProvider, T config) {
         String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        File logDirectory = config.getLogDirectory();
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(
                 new EnqueueWorker<T>(resourceManagerFactory, counter, stopController, messageProvider,
-                    config.getLogDirectory() != null ? new File(config.getLogDirectory(),
+                    logDirectory != null ? new File(logDirectory,
                         LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
                     config),
                 "EnqueueWorker-" + (i + 1)));

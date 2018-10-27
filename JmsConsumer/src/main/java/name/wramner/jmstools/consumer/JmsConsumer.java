@@ -76,11 +76,12 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
             Counter receiveTimeoutCounter, StopController stopController, T config) {
         String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        File logDirectory = config.getLogDirectory();
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(
                 new DequeueWorker<T>(resourceManagerFactory, messageCounter, receiveTimeoutCounter, stopController,
-                    config.getLogDirectory() != null ? new File(config.getLogDirectory(),
+                    logDirectory != null ? new File(logDirectory,
                         LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
                     config),
                 "DequeueWorker-" + (i + 1)));
