@@ -74,6 +74,17 @@ create view if not exists produced_per_minute as
   where outcome = 'C'
   group by trunc(outcome_time, 'mi');  
 
+create view if not exists messages_per_minute as
+  select p.total_count produced_count,
+         c.total_count consumed_count,
+         p.max_size produced_max_size,
+         c.max_size consumed_max_size,
+         p.median_size produced_median_size,
+         c.median_size consumed_median_size,
+         nvl(p.time_period, c.time_period) time_period
+   from produced_per_minute p
+   full outer join consumed_per_minute c on p.time_period = c.time_period;
+         
 create view if not exists message_flight_time as
   select p.application_id, p.produced_time, c.consumed_time,
          datediff('millisecond', p.produced_time, c.consumed_time) flight_time_millis

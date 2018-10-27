@@ -1,0 +1,113 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-3.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+<title
+    th:text="'JmsTools Test ' + ${#dates.format(dataProvider.startTime, 'yyyy-MM-dd HH:mm:ss')} + ' - ' + ${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}">Test
+    report</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<style>
+table {
+	border-collapse: collapse;
+}
+
+table, th, td {
+	border: 1px solid black;
+}
+
+th {
+	text-align: left;
+	background-color: #95b3d7;
+}
+
+tr:nth-child(even) {
+	background-color: #f2f2f2;
+}
+
+caption {
+	text-align: left;
+	font-size: large;
+	margin-top: 10px;
+	white-space: nowrap;
+}
+</style>
+</head>
+<body th:if="${dataProvider.totalMessageCount > 0}">
+    <h1>JmsTools Test Report</h1>
+    <h2>Summary</h2>
+    <p>
+        The test started at <span th:text="${#dates.format(dataProvider.startTime, 'yyyy-MM-dd HH:mm:ss')}">2017-01-01
+            10:00:00</span> and ended at <span th:text="${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}">2017-01-01
+            12:00:00</span>. A total of <span th:text="${dataProvider.producedMessageCount}">1000</span> messages were produced
+        and <span th:text="${dataProvider.consumedMessageCount}">1000</span> consumed. Of the produced messages <span
+            th:text="${dataProvider.delayedMessageCount}">10</span> (<span
+            th:text="${#numbers.formatDecimal(dataProvider.delayedMessagePercentage, 1, 2)}">1.00</span>%) were delayed.
+    
+    <p>This is a reduced report without correctness details. To include correctness, be sure to use the id option
+        when producing messages and include logs from both producers and consumers.
+
+    <h2>Throughput</h2>
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2">Period</th>
+                <th rowspan="2" align="right">Total #</th>
+                <th colspan="3">Produced</th>
+                <th colspan="3">Consumed</th>
+            </tr>
+            <tr>
+                <th>Count</th>
+                <th>Max message size</th>
+                <th>Median message size</th>
+                <th>Count</th>
+                <th>Max message size</th>
+                <th>Median message size</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="m : ${dataProvider.messagesPerMinute}">
+                <td th:text="${m.periodStart}">2018-12-01 16:00</td>
+                <td th:text="${m.total}" align="right">10000</td>
+                <td th:text="${m.produced}" align="right">8000</td>
+                <td th:text="${m.maxProducedSize}" align="right">100</td>
+                <td th:text="${m.medianProducedSize}" align="right">100</td>
+                <td th:text="${m.consumed}" align="right">2000</td>
+                <td th:text="${m.maxConsumedSize}" align="right">100</td>
+                <td th:text="${m.medianConsumedSize}" align="right">100</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Flight time</h2>
+    <div th:if="${dataProvider.flightTimeDataAvailable}" th:remove="tag">
+        <p>The flight times are measured in milliseconds between the produced and consumed times. Not the commit
+            times - there may be a difference, in particular when batches are used. Percentiles are computed by picking
+            the closest real value without any interpolation, so for tests with few messages per minute they will be
+            formally correct but misleading.
+        <table>
+            <thead>
+                <tr>
+                    <th>Period</th>
+                    <th>Count</th>
+                    <th>Min</th>
+                    <th>Median</th>
+                    <th>95 percentile</th>
+                    <th>98 percentile</th>
+                    <th>Max</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="m : ${dataProvider.flightTimeMetrics}">
+                    <td th:text="${m.period}">2017-12-01 16:00</td>
+                    <td th:text="${m.count}" align="right">810</td>
+                    <td th:text="${m.min}" align="right">810</td>
+                    <td th:text="${m.median}" align="right">810</td>
+                    <td th:text="${m.percentile95}" align="right">810</td>
+                    <td th:text="${m.percentile98}" align="right">810</td>
+                    <td th:text="${m.max}" align="right">810</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div th:if="${! dataProvider.flightTimeDataAvailable}" th:remove="tag">Flight times cannot be computed.</div>
+</body>
+</html>

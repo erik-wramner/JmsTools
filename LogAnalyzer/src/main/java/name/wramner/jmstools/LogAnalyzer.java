@@ -15,18 +15,15 @@
  */
 package name.wramner.jmstools;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -36,7 +33,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +43,11 @@ import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.templateresolver.AbstractConfigurableTemplateResolver;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.templateresolver.FileTemplateResolver;
 
 /**
  * Import log files from producers and consumers into a database for analysis, either with a generated HTML report or
@@ -55,11 +56,6 @@ import org.kohsuke.args4j.Option;
  * @author Erik Wramner
  */
 public class LogAnalyzer {
-    private static final int MAX_LOST_MESSAGES_IN_REPORT = 50;
-    private static final int MAX_DUPLICATE_MESSAGES_IN_REPORT = 50;
-    private static final int MAX_GHOST_MESSAGES_IN_REPORT = 50;
-    private static final int MAX_ALIEN_MESSAGES_IN_REPORT = 50;
-    private static final int MAX_UNDEAD_MESSAGES_IN_REPORT = 50;
 
     /**
      * Program entry point.
@@ -89,27 +85,8 @@ public class LogAnalyzer {
                 if (config.isInteractive()) {
                     openCommandPrompt(conn);
                 } else {
-                    // Quick and dirty, but it works
-                    System.out.println("Reading template...");
-                    String report = readReportTemplate();
-                    System.out.println("Generating lost messages...");
-                    report = report.replace("{lostMessageReport}", generateLostMessageReport(conn));
-                    System.out.println("Generating duplicate messages...");
-                    report = report.replace("{duplicateMessageReport}", generateDuplicateMessageReport(conn));
-                    System.out.println("Generating ghost messages...");
-                    report = report.replace("{ghostMessageReport}", generateGhostMessageReport(conn));
-                    System.out.println("Generating alien messages...");
-                    report = report.replace("{alienMessageReport}", generateAlienMessageReport(conn));
-                    System.out.println("Generating undead messages...");
-                    report = report.replace("{undeadMessageReport}", generateUndeadMessageReport(conn));
-                    System.out.println("Generating produced per minute table...");
-                    report = report.replace("{producedPerMinuteTable}", generateProducedPerMinuteTable(conn));
-                    System.out.println("Generating consumed per minute table...");
-                    report = report.replace("{consumedPerMinuteTable}", generateConsumedPerMinuteTable(conn));
-                    System.out.println("Generating flight time table...");
-                    report = report.replace("{flightTimeTable}", generateFlightTimeTable(conn));
-                    System.out.println("Writing report...");
-                    writeReport(config.getReportFile(), report);
+                    System.out.println("Generating Thymeleaf report...");
+                    generateThymeleafReport(config, conn);
                     System.out.println("Done!");
                 }
             } catch (Exception e) {
@@ -120,252 +97,476 @@ public class LogAnalyzer {
         }
     }
 
-    private void writeReport(File reportFile, String report) throws IOException, FileNotFoundException {
-        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(reportFile))) {
-            os.write(report.getBytes(Charset.defaultCharset()));
-            os.flush();
+    /**
+     * Generate report using the Thymeleaf template engine.
+     *
+     * @param config The configuration.
+     * @param conn The database connection.
+     * @throws IOException on read or write errors. @ on database errors.
+     */
+    private void generateThymeleafReport(Configuration config, Connection conn) throws IOException, SQLException {
+        TemplateEngine engine = new TemplateEngine();
+        File templateFile = config.getTemplateFile();
+        AbstractConfigurableTemplateResolver resolver = templateFile != null ? new FileTemplateResolver()
+                        : new ClassLoaderTemplateResolver();
+        resolver.setTemplateMode("HTML");
+        engine.setTemplateResolver(resolver);
+        Context context = new Context();
+        DataProvider dataProvider = new DataProvider(conn);
+        context.setVariable("dataProvider", dataProvider);
+        try (Writer writer = new BufferedWriter(new FileWriter(config.getReportFile()))) {
+            engine.process(templateFile != null ? templateFile.getPath()
+                            : (dataProvider.isCorrectnessTest() ? "correctness_test_report.html"
+                                            : "perf_test_report.html"),
+                            context, writer);
         }
     }
 
-    private String generateLostMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select application_id from lost_messages")) {
-            if (rs.next()) {
-                List<String> ids = new ArrayList<>();
-                do {
-                    ids.add(rs.getString(1));
-                } while (rs.next());
-                StringBuilder sb = new StringBuilder();
-                sb.append("<p>A total of <b>").append(ids.size()).append("</b> message(s) have been <b>lost</b>: ");
-                for (int i = 0; i < ids.size() && i < MAX_LOST_MESSAGES_IN_REPORT; i++) {
-                    if (i > 0) {
-                        sb.append(", ");
+    /**
+     * This exception wraps a normal SQL exception but is unchecked.
+     */
+    public static class UncheckedSqlException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        public UncheckedSqlException(SQLException cause) {
+            super(cause);
+        }
+
+        public UncheckedSqlException(String message, SQLException cause) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * Message that has been produced or consumed.
+     */
+    public static class Message {
+        private final String _jmsId;
+        private final String _applicationId;
+        private final Integer _payloadSize;
+
+        public Message(String jmsId, String applicationId, Integer payloadSize) {
+            _jmsId = jmsId;
+            _applicationId = applicationId;
+            _payloadSize = payloadSize;
+        }
+
+        public String getJmsId() {
+            return _jmsId;
+        }
+
+        public String getApplicationId() {
+            return _applicationId;
+        }
+
+        public Integer getPayloadSize() {
+            return _payloadSize;
+        }
+    }
+
+    /**
+     * Produced message.
+     */
+    public static class ProducedMessage extends Message {
+        private final int _delaySeconds;
+        private final Timestamp _publishedTimestamp;
+
+        public ProducedMessage(String jmsId, String applicationId, Integer payloadSize, Timestamp publishedTimestamp,
+                        int delaySeconds) {
+            super(jmsId, applicationId, payloadSize);
+            _delaySeconds = delaySeconds;
+            _publishedTimestamp = publishedTimestamp;
+        }
+
+        public int getDelaySeconds() {
+            return _delaySeconds;
+        }
+
+        public Timestamp getPublishedTimestamp() {
+            return _publishedTimestamp;
+        }
+    }
+
+    /**
+     * Consumed message.
+     */
+    public static class ConsumedMessage extends Message {
+        private final Timestamp _consumedTimestamp;
+
+        public ConsumedMessage(String jmsId, String applicationId, Integer payloadSize, Timestamp consumedTimestamp) {
+            super(jmsId, applicationId, payloadSize);
+            _consumedTimestamp = consumedTimestamp;
+        }
+
+        public Timestamp getConsumedTimestamp() {
+            return _consumedTimestamp;
+        }
+    }
+
+    /**
+     * Metrics for a period (a minute).
+     */
+    public static class PeriodMetrics {
+        private final Timestamp periodStart;
+        private final int _produced;
+        private final int _consumed;
+        private final int _maxProducedSize;
+        private final int _maxConsumedSize;
+        private final int _medianProducedSize;
+        private final int _medianConsumedSize;
+
+        public PeriodMetrics(Timestamp periodStart, int produced, int consumed, int maxProducedSize,
+                        int maxConsumedSize, int medianProducedSize, int medianConsumedSize) {
+            this.periodStart = periodStart;
+            _produced = produced;
+            _consumed = consumed;
+            _maxProducedSize = maxProducedSize;
+            _maxConsumedSize = maxConsumedSize;
+            _medianProducedSize = medianProducedSize;
+            _medianConsumedSize = medianConsumedSize;
+        }
+
+        public Timestamp getPeriodStart() {
+            return periodStart;
+        }
+
+        public int getTotal() {
+            return getProduced() + getConsumed();
+        }
+
+        public int getProduced() {
+            return _produced;
+        }
+
+        public int getConsumed() {
+            return _consumed;
+        }
+
+        public int getMaxProducedSize() {
+            return _maxProducedSize;
+        }
+
+        public int getMaxConsumedSize() {
+            return _maxConsumedSize;
+        }
+
+        public int getMedianProducedSize() {
+            return _medianProducedSize;
+        }
+
+        public int getMedianConsumedSize() {
+            return _medianConsumedSize;
+        }
+    }
+
+    /**
+     * Flight time metrics for a period (minute).
+     */
+    public static class FlightTimeMetrics {
+        private final Timestamp _period;
+        private final int _count;
+        private final int _min;
+        private final int _max;
+        private final int _median;
+        private final int _percentile95;
+        private final int _percentile98;
+
+        public FlightTimeMetrics(Timestamp period, int count, int min, int max, int median, int percentile95,
+                        int percentile98) {
+            _period = period;
+            _count = count;
+            _min = min;
+            _max = max;
+            _median = median;
+            _percentile95 = percentile95;
+            _percentile98 = percentile98;
+        }
+
+        public Timestamp getPeriod() {
+            return _period;
+        }
+
+        public int getCount() {
+            return _count;
+        }
+
+        public int getMin() {
+            return _min;
+        }
+
+        public int getMax() {
+            return _max;
+        }
+
+        public int getMedian() {
+            return _median;
+        }
+
+        public int getPercentile95() {
+            return _percentile95;
+        }
+
+        public int getPercentile98() {
+            return _percentile98;
+        }
+    }
+
+    /**
+     * This class provides data for the Thymeleaf reports.
+     */
+    public static class DataProvider {
+        private final Connection _conn;
+        private final Timestamp _startTime;
+        private final Timestamp _endTime;
+        private final int _consumedMessageCount;
+        private final int _producedMessageCount;
+        private final int _lostMessageCount;
+        private final int _duplicateMessageCount;
+        private final int _ghostMessageCount;
+        private final int _alienMessageCount;
+        private final int _undeadMessageCount;
+        private final int _delayedMessageCount;
+
+        /**
+         * Constructor.
+         *
+         * @param conn The database connection.
+         */
+        public DataProvider(Connection conn) {
+            _conn = conn;
+            _startTime = findStartTime();
+            _endTime = findEndTime();
+            _producedMessageCount = findSimpleCount("produced_messages");
+            _consumedMessageCount = findSimpleCount("consumed_messages");
+            _lostMessageCount = findSimpleCount("lost_messages");
+            _duplicateMessageCount = findSimpleCount("duplicate_messages");
+            _ghostMessageCount = findSimpleCount("ghost_messages");
+            _alienMessageCount = findSimpleCount("alien_messages");
+            _undeadMessageCount = findSimpleCount("undead_messages");
+            _delayedMessageCount = findWithIntResult("select count(*) from produced_messages where delay_seconds > 0");
+        }
+
+        public Timestamp getStartTime() {
+            return _startTime;
+        }
+
+        public Timestamp getEndTime() {
+            return _endTime;
+        }
+
+        public int getTotalMessageCount() {
+            return getConsumedMessageCount() + getProducedMessageCount();
+        }
+
+        public int getConsumedMessageCount() {
+            return _consumedMessageCount;
+        }
+
+        public int getProducedMessageCount() {
+            return _producedMessageCount;
+        }
+
+        public int getLostMessageCount() {
+            return _lostMessageCount;
+        }
+
+        public int getDuplicateMessageCount() {
+            return _duplicateMessageCount;
+        }
+
+        public int getGhostMessageCount() {
+            return _ghostMessageCount;
+        }
+
+        public int getAlienMessageCount() {
+            return _alienMessageCount;
+        }
+
+        public int getUndeadMessageCount() {
+            return _undeadMessageCount;
+        }
+
+        public int getDelayedMessageCount() {
+            return _delayedMessageCount;
+        }
+
+        public double getDelayedMessagePercentage() {
+            return getProducedMessageCount() > 0 ? (100.0 * getDelayedMessageCount()) / getProducedMessageCount() : 0;
+        }
+
+        public boolean isFlightTimeDataAvailable() {
+            return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0 && isCorrectnessTest();
+        }
+
+        public List<FlightTimeMetrics> getFlightTimeMetrics() {
+            List<FlightTimeMetrics> list = new ArrayList<>();
+            try (Statement stat = _conn.createStatement();
+                 ResultSet rs = stat.executeQuery("select trunc(produced_time, 'mi'), flight_time_millis"
+                                 + " from message_flight_time order by 1")) {
+                if (rs.next()) {
+                    Timestamp lastTime = rs.getTimestamp(1);
+                    List<Integer> flightTimes = new ArrayList<Integer>();
+                    do {
+                        Timestamp time = rs.getTimestamp(1);
+                        int flightTimeMillis = rs.getInt(2);
+                        if (!time.equals(lastTime)) {
+                            list.add(computeFlightTimeMetrics(lastTime, flightTimes));
+                            flightTimes.clear();
+                            lastTime = time;
+                        } else {
+                            flightTimes.add(Integer.valueOf(flightTimeMillis));
+                        }
+                    } while (rs.next());
+                    if (!flightTimes.isEmpty()) {
+                        list.add(computeFlightTimeMetrics(lastTime, flightTimes));
                     }
-                    sb.append(ids.get(i));
                 }
-                sb.append(".</p>");
-                if (ids.size() > MAX_LOST_MESSAGES_IN_REPORT) {
-                    sb.append("<p>Only some messages included, use interactive mode for details.</p>");
-                }
-                sb.append("<p>Check the dead letter queue!</p>");
-                return sb.toString();
-            } else {
-                return "<p>No lost messages.</p>";
+                return list;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
             }
         }
-    }
 
-    private String generateDuplicateMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select application_id from duplicate_messages")) {
-            if (rs.next()) {
-                List<String> ids = new ArrayList<>();
-                do {
-                    ids.add(rs.getString(1));
-                } while (rs.next());
-                StringBuilder sb = new StringBuilder();
-                sb.append("<p>A total of <b>").append(ids.size()).append("</b> message(s) are duplicates: ");
-                for (int i = 0; i < ids.size() && i < MAX_DUPLICATE_MESSAGES_IN_REPORT; i++) {
-                    if (i > 0) {
-                        sb.append(", ");
-                    }
-                    sb.append(ids.get(i));
-                }
-                sb.append(".</p>");
-                if (ids.size() > MAX_DUPLICATE_MESSAGES_IN_REPORT) {
-                    sb.append("<p>Only some messages included, use interactive mode for details.</p>");
-                }
-                return sb.toString();
-            } else {
-                return "<p>No duplicate messages.</p>";
-            }
-        }
-    }
-
-    private String generateGhostMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select * from ghost_messages")) {
-            if (rs.next()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("<p>The messages below were sent, but rolled back. They should not have been delivered. They are ghosts.</p>");
-                sb.append("<table><thead><tr><th>JMSID</th><th>Application id</th><th>Consumed</th></thead><tbody>");
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                int count = 0;
-                do {
-                    sb.append("<tr>");
-                    sb.append("<td>").append(rs.getString("jms_id")).append("</td>");
-                    sb.append("<td>").append(rs.getString("application_id")).append("</td>");
-                    sb.append("<td>").append(df.format(rs.getTimestamp("consumed_time"))).append("</td>");
-                    sb.append("</tr>");
-                    if (++count > MAX_GHOST_MESSAGES_IN_REPORT) {
-                        sb.append("<tr><td colspan=\"3\">...more data available, use interactive mode!</td></tr>");
-                        break;
-                    }
-                } while (rs.next());
-                sb.append("</tbody></table>");
-                return sb.toString();
-            } else {
-                return "<p>No ghost messages.</p>";
-            }
-        }
-    }
-
-    private String generateUndeadMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select * from undead_messages")) {
-            if (rs.next()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("<p>The messages below were never sent (in this test), yet here they are.</p>");
-                sb.append("<table><thead><tr><th>JMSID</th><th>Application id</th><th>Consumed</th></thead><tbody>");
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                int count = 0;
-                do {
-                    sb.append("<tr>");
-                    sb.append("<td>").append(rs.getString("jms_id")).append("</td>");
-                    sb.append("<td>").append(rs.getString("application_id")).append("</td>");
-                    sb.append("<td>").append(df.format(rs.getTimestamp("consumed_time"))).append("</td>");
-                    sb.append("</tr>");
-                    if (++count > MAX_UNDEAD_MESSAGES_IN_REPORT) {
-                        sb.append("<tr><td colspan=\"3\">...more data available, use interactive mode!</td></tr>");
-                        break;
-                    }
-                } while (rs.next());
-                sb.append("</tbody></table>");
-                return sb.toString();
-            } else {
-                return "<p>No undead messages.</p>";
-            }
-        }
-    }
-
-    private String generateConsumedPerMinuteTable(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select time_period, total_count, total_bytes"
-                             + " from consumed_per_minute order by time_period")) {
-            if (rs.next()) {
-                long totalCount = 0;
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table><thead><tr><th>Period</th><th>Consumed count</th><th>Consumed bytes</th></thead><tbody>");
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                do {
-                    sb.append("<tr>");
-                    sb.append("<td>").append(df.format(rs.getTimestamp(1))).append("</td>");
-                    int count = rs.getInt(2);
-                    totalCount += count;
-                    sb.append("<td align='right'>").append(count).append("</td>");
-                    sb.append("<td align='right'>").append(rs.getInt(3)).append("</td>");
-                    sb.append("</tr>");
-                } while (rs.next());
-                sb.append("<tr><td>Total</td><td align='right'>").append(totalCount).append("</td><td>&nbsp;</td></tr>");
-                sb.append("</tbody></table>");
-                return sb.toString();
-            } else {
-                return "<p>No consumed messages.</p>";
-            }
-        }
-    }
-
-    private String generateProducedPerMinuteTable(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select time_period, total_count, total_bytes"
-                             + " from produced_per_minute order by time_period")) {
-            if (rs.next()) {
-                long totalCount = 0;
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table><thead><tr><th>Period</th><th>Produced count</th><th>Produced bytes</th></thead><tbody>");
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                do {
-                    sb.append("<tr>");
-                    sb.append("<td>").append(df.format(rs.getTimestamp(1))).append("</td>");
-                    int count = rs.getInt(2);
-                    totalCount += count;
-                    sb.append("<td align='right'>").append(count).append("</td>");
-                    sb.append("<td align='right'>").append(rs.getInt(3)).append("</td>");
-                    sb.append("</tr>");
-                } while (rs.next());
-                sb.append("<tr><td>Total</td><td align='right'>").append(totalCount).append("</td><td>&nbsp;</td></tr>");
-                sb.append("</tbody></table>");
-                return sb.toString();
-            } else {
-                return "<p>No produced messages.</p>";
-            }
-        }
-    }
-
-    private String generateFlightTimeTable(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select trunc(produced_time, 'mi'), flight_time_millis"
-                             + " from message_flight_time order by 1")) {
-            if (rs.next()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table><thead><tr><th>Time</th><th>Messages</th><th>Min</th><th>Max</th><th>95 percentile</th><th>98 percentile</th></thead><tbody>");
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                Timestamp lastTime = rs.getTimestamp(1);
-                List<Integer> flightTimes = new ArrayList<Integer>();
-                do {
-                    Timestamp time = rs.getTimestamp(1);
-                    int flightTimeMillis = rs.getInt(2);
-                    if (!time.equals(lastTime)) {
-                        appendFlightTimeSummaryForMinute(sb, df, lastTime, flightTimes);
-                        lastTime = time;
-                    } else {
-                        flightTimes.add(Integer.valueOf(flightTimeMillis));
-                    }
-                } while (rs.next());
-                appendFlightTimeSummaryForMinute(sb, df, lastTime, flightTimes);
-                sb.append("</tbody></table>");
-                return sb.toString();
-            } else {
-                return "<p>No message flight times recorded.</p>";
-            }
-        }
-    }
-
-    private void appendFlightTimeSummaryForMinute(StringBuilder sb, SimpleDateFormat df, Timestamp time,
-                    List<Integer> flightTimes) {
-        if (!flightTimes.isEmpty()) {
+        private FlightTimeMetrics computeFlightTimeMetrics(Timestamp time, List<Integer> flightTimes) {
             Collections.sort(flightTimes);
             int numberOfMeasurements = flightTimes.size();
+            int medianIndex = (numberOfMeasurements * 50 / 100);
             int percentile95Index = (numberOfMeasurements * 95 / 100);
             int percentile98Index = (numberOfMeasurements * 98 / 100);
-            sb.append("<tr>");
-            sb.append("<td>").append(df.format(time)).append("</td>");
-            sb.append("<td align='right'>").append(numberOfMeasurements).append("</td>");
-            sb.append("<td align='right'>").append(flightTimes.get(0)).append("</td>");
-            sb.append("<td align='right'>").append(flightTimes.get(numberOfMeasurements - 1)).append("</td>");
-            sb.append("<td align='right'>").append(flightTimes.get(percentile95Index)).append("</td>");
-            sb.append("<td align='right'>").append(flightTimes.get(percentile98Index)).append("</td>");
-            sb.append("</tr>");
-            flightTimes.clear();
+            return new FlightTimeMetrics(time, flightTimes.size(), flightTimes.get(0),
+                            flightTimes.get(flightTimes.size() - 1), flightTimes.get(medianIndex),
+                            flightTimes.get(percentile95Index), flightTimes.get(percentile98Index));
         }
-    }
 
-    private String generateAlienMessageReport(Connection conn) throws SQLException {
-        try (Statement stat = conn.createStatement();
-             ResultSet rs = stat.executeQuery("select jms_id from alien_messages")) {
-            if (rs.next()) {
-                List<String> ids = new ArrayList<>();
-                do {
-                    ids.add(rs.getString(1));
-                } while (rs.next());
-                StringBuilder sb = new StringBuilder();
-                sb.append("<p>A total of <b>").append(ids.size()).append("</b> message(s) are alien: ");
-                for (int i = 0; i < ids.size() && i < MAX_ALIEN_MESSAGES_IN_REPORT; i++) {
-                    if (i > 0) {
-                        sb.append(", ");
-                    }
-                    sb.append(ids.get(i));
+        public List<PeriodMetrics> getMessagesPerMinute() {
+            try (Statement stat = _conn.createStatement();
+                 ResultSet rs = stat.executeQuery("select * from messages_per_minute order by time_period")) {
+                List<PeriodMetrics> list = new ArrayList<>();
+                while (rs.next()) {
+                    list.add(new PeriodMetrics(rs.getTimestamp("time_period"), rs.getInt("produced_count"),
+                                    rs.getInt("consumed_count"), rs.getInt("produced_max_size"),
+                                    rs.getInt("consumed_max_size"), rs.getInt("produced_median_size"),
+                                    rs.getInt("consumed_median_size")));
                 }
-                sb.append(".</p>");
-                if (ids.size() > MAX_ALIEN_MESSAGES_IN_REPORT) {
-                    sb.append("<p>Only some messages included, use interactive mode for details.</p>");
-                }
-                sb.append("<p>This may be normal depending on the test.</p>");
-                return sb.toString();
-            } else {
-                return "<p>No alien messages.</p>";
+                return list;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
             }
         }
+
+        /**
+         * Check if this is (or may be) a correctness test where the id header is present. Without the id header it is
+         * impossible to connect produced and consumed messages.
+         *
+         * @return true if id is present in database, false otherwise.
+         */
+        public boolean isCorrectnessTest() {
+            return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0 && findExists(
+                            "select application_id from produced_messages where application_id is not null");
+        }
+
+        public List<ProducedMessage> getLostMessages() {
+            return findProducedMessages("select jms_id, application_id, payload_size, produced_time, delay_seconds"
+                            + " from lost_messages order by jms_id");
+        }
+
+        public List<ConsumedMessage> getAlienMessages() {
+            return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                            + " from alien_messages order by jms_id");
+        }
+
+        public List<ConsumedMessage> getUndeadMessages() {
+            return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                            + " from undead_messages order by jms_id");
+        }
+
+        public List<ConsumedMessage> getGhostMessages() {
+            return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                            + " from ghost_messages order by jms_id");
+        }
+
+        public List<ConsumedMessage> getDuplicateMessages() {
+            return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                            + " from consumed_messages c"
+                            + " where exists (select * from duplicate_messages d where d.application_id = c.application_id)"
+                            + " order by application_id, jms_id");
+        }
+
+        private List<ProducedMessage> findProducedMessages(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                List<ProducedMessage> list = new ArrayList<>();
+                while (rs.next()) {
+                    list.add(new ProducedMessage(rs.getString("jms_id"), rs.getString("application_id"),
+                                    (Integer) rs.getObject("payload_size"), rs.getTimestamp("produced_time"),
+                                    rs.getInt("delay_seconds")));
+                }
+                return list;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
+        private List<ConsumedMessage> findConsumedMessages(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                List<ConsumedMessage> list = new ArrayList<>();
+                while (rs.next()) {
+                    list.add(new ConsumedMessage(rs.getString("jms_id"), rs.getString("application_id"),
+                                    rs.getInt("payload_size"), rs.getTimestamp("consumed_time")));
+                }
+                return list;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
+        private int findSimpleCount(String table) {
+            return findWithIntResult("select count(*) from " + table);
+        }
+
+        private Timestamp findStartTime() {
+            return findWithTimestampResult("select min(ts) from (" //
+                            + "select min(produced_time) ts from produced_messages" //
+                            + " union all " //
+                            + "select min(consumed_time) ts from consumed_messages)");
+        }
+
+        private Timestamp findEndTime() {
+            return findWithTimestampResult("select max(ts) from (" //
+                            + "select max(produced_time) ts from produced_messages" //
+                            + " union all " //
+                            + "select max(consumed_time) ts from consumed_messages)");
+        }
+
+        private boolean findExists(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                return rs.next();
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
+        private int findWithIntResult(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                return 0;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
+        private Timestamp findWithTimestampResult(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getTimestamp(1);
+                }
+                return null;
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
     }
 
     private void closeSafely(Connection conn) {
@@ -451,8 +652,7 @@ public class LogAnalyzer {
     private void importEnqueuedFile(Connection conn, File file) throws IOException, SQLException {
         try (PreparedStatement stat = conn.prepareStatement("insert into produced_messages"
                         + " (outcome, outcome_time, produced_time, application_id, payload_size"
-                        + ", delay_seconds, jms_id)"
-                        + " values (?, ?, ?, ?, ?, ?, ?)");
+                        + ", delay_seconds, jms_id)" + " values (?, ?, ?, ?, ?, ?, ?)");
              BufferedReader reader = new BufferedReader(
                              new InputStreamReader(new FileInputStream(file), Charset.defaultCharset()))) {
             // Skip header line
@@ -537,16 +737,6 @@ public class LogAnalyzer {
         sqlFile.execute();
     }
 
-    private String readReportTemplate() throws IOException {
-        try (InputStream is = getClass().getResourceAsStream("/report_template.html")) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            for (int c = is.read(); c != -1; c = is.read()) {
-                bos.write(c);
-            }
-            return bos.toString();
-        }
-    }
-
     private static class Configuration {
         private static final String DEFAULT_JDBC_URL = "jdbc:hsqldb:mem:jmstoolsdb";
         private static final String DEFAULT_JDBC_USER = "sa";
@@ -568,8 +758,15 @@ public class LogAnalyzer {
         @Option(name = "-o", aliases = { "--output-file" }, usage = "Path and file name for report")
         private File _reportFile = new File(DEFAULT_REPORT_FILE);
 
+        @Option(name = "-t", aliases = { "--template-file" }, usage = "Optional Thymeleaf template file")
+        private File _templateFile;
+
         @Argument
         private List<String> _args = new ArrayList<String>();
+
+        public File getTemplateFile() {
+            return _templateFile;
+        }
 
         public boolean isInteractive() {
             return _interactive;
