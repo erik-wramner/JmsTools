@@ -143,7 +143,7 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
     private void logMessage(Message message, int delay) throws JMSException {
         logMessage(String.valueOf(System.currentTimeMillis()),
             message.getStringProperty(MessageProvider.UNIQUE_MESSAGE_ID_PROPERTY_NAME),
-            String.valueOf(message.getIntProperty(MessageProvider.LENGTH_PROPERTY_NAME)), String.valueOf(delay),
+            message.getStringProperty(MessageProvider.LENGTH_PROPERTY_NAME), String.valueOf(delay),
             message.getJMSMessageID());
     }
 

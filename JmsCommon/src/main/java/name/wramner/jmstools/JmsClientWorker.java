@@ -274,7 +274,9 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
                 sb.append(nowString);
                 for (String field : fields) {
                     sb.append('\t');
-                    sb.append(field);
+                    if(field != null) {
+                        sb.append(field);
+                    }
                 }
                 sb.append('\n');
             }

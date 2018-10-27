@@ -35,6 +35,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +51,7 @@ import org.kohsuke.args4j.Option;
 /**
  * Import log files from producers and consumers into a database for analysis, either with a generated HTML report or
  * interactively from a SQL command prompt.
- * 
+ *
  * @author Erik Wramner
  */
 public class LogAnalyzer {
@@ -62,7 +63,7 @@ public class LogAnalyzer {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args The command line arguments.
      */
     public static void main(String[] args) {
@@ -72,7 +73,7 @@ public class LogAnalyzer {
     /**
      * Parse command line, optionally create database schema, import log files and generate a report or provide an
      * interactive SQL command line.
-     * 
+     *
      * @param args The command line arguments.
      */
     public void run(String[] args) {
@@ -83,21 +84,33 @@ public class LogAnalyzer {
                 Class.forName("org.hsqldb.jdbc.JDBCDriver");
                 conn = DriverManager.getConnection(config.getJdbcUrl(), config.getJdbcUser(), config.getJdbcPassword());
                 createSchema(conn);
+                System.out.println("Importing files...");
                 importLogFiles(conn, config.getRemainingArguments());
                 if (config.isInteractive()) {
                     openCommandPrompt(conn);
                 } else {
                     // Quick and dirty, but it works
+                    System.out.println("Reading template...");
                     String report = readReportTemplate();
+                    System.out.println("Generating lost messages...");
                     report = report.replace("{lostMessageReport}", generateLostMessageReport(conn));
+                    System.out.println("Generating duplicate messages...");
                     report = report.replace("{duplicateMessageReport}", generateDuplicateMessageReport(conn));
+                    System.out.println("Generating ghost messages...");
                     report = report.replace("{ghostMessageReport}", generateGhostMessageReport(conn));
+                    System.out.println("Generating alien messages...");
                     report = report.replace("{alienMessageReport}", generateAlienMessageReport(conn));
+                    System.out.println("Generating undead messages...");
                     report = report.replace("{undeadMessageReport}", generateUndeadMessageReport(conn));
+                    System.out.println("Generating produced per minute table...");
                     report = report.replace("{producedPerMinuteTable}", generateProducedPerMinuteTable(conn));
+                    System.out.println("Generating consumed per minute table...");
                     report = report.replace("{consumedPerMinuteTable}", generateConsumedPerMinuteTable(conn));
+                    System.out.println("Generating flight time table...");
                     report = report.replace("{flightTimeTable}", generateFlightTimeTable(conn));
+                    System.out.println("Writing report...");
                     writeReport(config.getReportFile(), report);
+                    System.out.println("Done!");
                 }
             } catch (Exception e) {
                 e.printStackTrace(System.err);
@@ -371,7 +384,7 @@ public class LogAnalyzer {
 
     /**
      * Parse the command line into the specified configuration.
-     * 
+     *
      * @param args The command line.
      * @param config The configuration class.
      * @return true if successful, false on errors such as missing arguments.
@@ -395,7 +408,7 @@ public class LogAnalyzer {
 
     /**
      * Print usage. All supported options are listed.
-     * 
+     *
      * @param parser The parser.
      */
     private void printUsage(CmdLineParser parser) {
@@ -429,8 +442,9 @@ public class LogAnalyzer {
 
     private void importEnqueuedFile(Connection conn, File file) throws IOException, SQLException {
         try (PreparedStatement stat = conn.prepareStatement("insert into produced_messages"
-                        + " (outcome, outcome_time, produced_time, application_id, payload_size, delay_seconds)"
-                        + " values (?, ?, ?, ?, ?, ?)");
+                        + " (outcome, outcome_time, produced_time, application_id, payload_size"
+                        + ", delay_seconds, jms_id)"
+                        + " values (?, ?, ?, ?, ?, ?, ?)");
              BufferedReader reader = new BufferedReader(
                              new InputStreamReader(new FileInputStream(file), Charset.defaultCharset()))) {
             // Skip header line
@@ -443,9 +457,20 @@ public class LogAnalyzer {
                 stat.setString(pos++, fields[field++]);
                 stat.setTimestamp(pos++, new Timestamp(Long.parseLong(fields[field++])));
                 stat.setTimestamp(pos++, new Timestamp(Long.parseLong(fields[field++])));
+                String applicationId = fields[field++];
+                if (applicationId != null && applicationId.length() > 0) {
+                    stat.setString(pos++, applicationId);
+                } else {
+                    stat.setNull(pos++, Types.VARCHAR);
+                }
+                String payloadSizeString = fields[field++];
+                if (payloadSizeString != null && payloadSizeString.length() > 0) {
+                    stat.setInt(pos++, Integer.parseInt(payloadSizeString));
+                } else {
+                    stat.setNull(pos++, Types.INTEGER);
+                }
+                stat.setInt(pos++, Integer.parseInt(fields[field++]));
                 stat.setString(pos++, fields[field++]);
-                stat.setInt(pos++, Integer.parseInt(fields[field++]));
-                stat.setInt(pos++, Integer.parseInt(fields[field++]));
                 stat.executeUpdate();
             }
             conn.commit();
@@ -469,8 +494,18 @@ public class LogAnalyzer {
                 stat.setTimestamp(pos++, new Timestamp(Long.parseLong(fields[field++])));
                 stat.setTimestamp(pos++, new Timestamp(Long.parseLong(fields[field++])));
                 stat.setString(pos++, fields[field++]);
-                stat.setString(pos++, fields[field++]);
-                stat.setInt(pos++, Integer.parseInt(fields[field++]));
+                String applicationId = fields[field++];
+                if (applicationId != null && applicationId.length() > 0) {
+                    stat.setString(pos++, applicationId);
+                } else {
+                    stat.setNull(pos++, Types.VARCHAR);
+                }
+                String payloadSizeString = fields[field++];
+                if (payloadSizeString != null && payloadSizeString.length() > 0) {
+                    stat.setInt(pos++, Integer.parseInt(payloadSizeString));
+                } else {
+                    stat.setNull(pos++, Types.INTEGER);
+                }
                 stat.executeUpdate();
             }
             conn.commit();
