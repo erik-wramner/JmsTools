@@ -243,16 +243,20 @@ public class LogAnalyzer {
              ResultSet rs = stat.executeQuery("select time_period, total_count, total_bytes"
                              + " from consumed_per_minute order by time_period")) {
             if (rs.next()) {
+                long totalCount = 0;
                 StringBuilder sb = new StringBuilder();
                 sb.append("<table><thead><tr><th>Period</th><th>Consumed count</th><th>Consumed bytes</th></thead><tbody>");
                 SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
                 do {
                     sb.append("<tr>");
                     sb.append("<td>").append(df.format(rs.getTimestamp(1))).append("</td>");
-                    sb.append("<td align='right'>").append(rs.getInt(2)).append("</td>");
+                    int count = rs.getInt(2);
+                    totalCount += count;
+                    sb.append("<td align='right'>").append(count).append("</td>");
                     sb.append("<td align='right'>").append(rs.getInt(3)).append("</td>");
                     sb.append("</tr>");
                 } while (rs.next());
+                sb.append("<tr><td>Total</td><td align='right'>").append(totalCount).append("</td><td>&nbsp;</td></tr>");
                 sb.append("</tbody></table>");
                 return sb.toString();
             } else {
@@ -266,16 +270,20 @@ public class LogAnalyzer {
              ResultSet rs = stat.executeQuery("select time_period, total_count, total_bytes"
                              + " from produced_per_minute order by time_period")) {
             if (rs.next()) {
+                long totalCount = 0;
                 StringBuilder sb = new StringBuilder();
                 sb.append("<table><thead><tr><th>Period</th><th>Produced count</th><th>Produced bytes</th></thead><tbody>");
                 SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
                 do {
                     sb.append("<tr>");
                     sb.append("<td>").append(df.format(rs.getTimestamp(1))).append("</td>");
-                    sb.append("<td align='right'>").append(rs.getInt(2)).append("</td>");
+                    int count = rs.getInt(2);
+                    totalCount += count;
+                    sb.append("<td align='right'>").append(count).append("</td>");
                     sb.append("<td align='right'>").append(rs.getInt(3)).append("</td>");
                     sb.append("</tr>");
                 } while (rs.next());
+                sb.append("<tr><td>Total</td><td align='right'>").append(totalCount).append("</td><td>&nbsp;</td></tr>");
                 sb.append("</tbody></table>");
                 return sb.toString();
             } else {
