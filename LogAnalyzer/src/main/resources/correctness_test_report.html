@@ -44,6 +44,8 @@ caption {
 
 
 
+
+
     
     <h2>Correctness</h2>
     <p>
@@ -248,6 +250,7 @@ caption {
                 </tr>
             </tbody>
         </table>
+        <img th:src="${dataProvider.base64EncodedFlightTimeMetricsImage}">
     </div>
     <div th:if="${! dataProvider.flightTimeDataAvailable}" th:remove="tag">Flight times cannot be computed.</div>
 </body>

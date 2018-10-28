@@ -17,12 +17,14 @@ package name.wramner.jmstools;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.sql.Connection;
@@ -34,11 +36,17 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
 import org.hsqldb.cmdline.SqlFile;
 import org.hsqldb.cmdline.SqlToolError;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtilities;
+import org.jfree.data.time.Minute;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -326,6 +334,7 @@ public class LogAnalyzer {
         private final int _alienMessageCount;
         private final int _undeadMessageCount;
         private final int _delayedMessageCount;
+        private List<FlightTimeMetrics> _flightTimeMetrics;
 
         /**
          * Constructor.
@@ -399,6 +408,9 @@ public class LogAnalyzer {
         }
 
         public List<FlightTimeMetrics> getFlightTimeMetrics() {
+            if (_flightTimeMetrics != null) {
+                return _flightTimeMetrics;
+            }
             List<FlightTimeMetrics> list = new ArrayList<>();
             try (Statement stat = _conn.createStatement();
                  ResultSet rs = stat.executeQuery("select trunc(produced_time, 'mi'), flight_time_millis"
@@ -421,10 +433,37 @@ public class LogAnalyzer {
                         list.add(computeFlightTimeMetrics(lastTime, flightTimes));
                     }
                 }
-                return list;
+                return (_flightTimeMetrics = list);
             } catch (SQLException e) {
                 throw new UncheckedSqlException(e);
             }
+        }
+
+        public String getBase64EncodedFlightTimeMetricsImage() {
+            TimeSeries timeSeries50p = new TimeSeries("Median");
+            TimeSeries timeSeries95p = new TimeSeries("95 percentile");
+            TimeSeries timeSeries98p = new TimeSeries("98 percentile");
+            TimeSeries timeSeriesMax = new TimeSeries("Max");
+            for (FlightTimeMetrics m : getFlightTimeMetrics()) {
+                Minute minute = new Minute(m.getPeriod());
+                timeSeries50p.add(minute, m.getMedian());
+                timeSeries95p.add(minute, m.getPercentile95());
+                timeSeries98p.add(minute, m.getPercentile98());
+                timeSeriesMax.add(minute, m.getMax());
+            }
+            TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries50p);
+            timeSeriesCollection.addSeries(timeSeries95p);
+            timeSeriesCollection.addSeries(timeSeries98p);
+            timeSeriesCollection.addSeries(timeSeriesMax);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                ChartUtilities.writeChartAsPNG(bos,
+                                ChartFactory.createTimeSeriesChart("Flight time", "Time", "ms", timeSeriesCollection),
+                                1024, 500);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
         }
 
         private FlightTimeMetrics computeFlightTimeMetrics(Timestamp time, List<Integer> flightTimes) {
@@ -738,6 +777,7 @@ public class LogAnalyzer {
     }
 
     private static class Configuration {
+        // Replace mem with file to use a file-based database and perhaps reduce memory footprint
         private static final String DEFAULT_JDBC_URL = "jdbc:hsqldb:mem:jmstoolsdb";
         private static final String DEFAULT_JDBC_USER = "sa";
         private static final String DEFAULT_JDBC_PASSWORD = "";
