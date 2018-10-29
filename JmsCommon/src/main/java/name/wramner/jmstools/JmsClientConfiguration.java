@@ -47,7 +47,8 @@ public abstract class JmsClientConfiguration {
     @Option(name = "-topic", aliases = { "--topic-name" }, usage = "Topic name", forbids = "-queue")
     private String _topicName;
 
-    @Option(name = "-count", aliases = { "--stop-after-messages" }, usage = "Total number of messages to process")
+    @Option(name = "-count", aliases = { "--stop-after-messages" }, usage = "Approximate number of messages to process,"
+                    + " hard limit is count + batch size * (threads - 1).")
     protected Integer _stopAfterMessages;
 
     @Option(name = "-duration", aliases = { "--duration-minutes" }, usage = "Duration to run in minutes")
@@ -170,7 +171,7 @@ public abstract class JmsClientConfiguration {
      * @return log directory.
      */
     public File getLogDirectory() {
-        if(_logDirectory != null) {
+        if (_logDirectory != null) {
             _logDirectory.mkdirs();
         }
         return _logDirectory;
