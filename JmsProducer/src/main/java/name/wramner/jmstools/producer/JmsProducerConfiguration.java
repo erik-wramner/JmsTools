@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.spi.StringArrayOptionHandler;
@@ -43,6 +44,8 @@ import name.wramner.jmstools.stopcontroller.StopController;
  * @author Erik Wramner
  */
 public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
+    private static final int ONE_MINUTE_MS = 60_000;
+    private static final int AVERAGE_PROCESSING_TIME_MS = 1;
     private static final String DEFAULT_FILE_ENCODING = "UTF-8";
     private static final int DEFAULT_NUMBER_OF_MESSAGES = 100;
     private static final int DEFAULT_MIN_SIZE = 1024;
@@ -82,7 +85,12 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     protected int _messagesPerBatch = 1;
 
     @Option(name = "-sleep", aliases = "--sleep-time-ms", usage = "Sleep time in milliseconds between batches")
-    protected int _sleepTimeMillisAfterBatch;
+    private Integer _initialSleepTimeMillisAfterBatch;
+
+    private AtomicInteger _sleepTimeMillisAfterBatch;
+
+    @Option(name = "-tpm", aliases = "--messages-per-minute", usage = "Target for number of transactions/messages per minute")
+    private Integer _targetTpm;
 
     @Option(name = "-type", aliases = "--message-type", usage = "JMS message type")
     private JmsProducerConfiguration.MessageType _messageType;
@@ -176,6 +184,15 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     }
 
     /**
+     * Get the target for messages per minute or null if not configured.
+     *
+     * @return desired number of messages per minute.
+     */
+    public Integer getTargetTpm() {
+        return _targetTpm;
+    }
+
+    /**
      * Get the outlier size in bytes. An outlier is a message much larger than the normal message size.
      *
      * @return outlier size in bytes.
@@ -200,7 +217,24 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
      *
      * @return sleep time.
      */
-    public int getSleepTimeMillisAfterBatch() {
+    public synchronized AtomicInteger getSleepTimeMillisAfterBatch() {
+        if (_sleepTimeMillisAfterBatch == null) {
+            int initialSleepMillis;
+            if (_initialSleepTimeMillisAfterBatch == null) {
+                if (_targetTpm != null && _targetTpm.intValue() > 0) {
+                    int messagesPerMinute = _targetTpm.intValue();
+                    initialSleepMillis = Math.max(
+                                    (getThreads() * ONE_MINUTE_MS - (messagesPerMinute * AVERAGE_PROCESSING_TIME_MS))
+                                                    / messagesPerMinute,
+                                    0) * getMessagesPerBatch();
+                } else {
+                    initialSleepMillis = 0;
+                }
+            } else {
+                initialSleepMillis = _initialSleepTimeMillisAfterBatch.intValue();
+            }
+            _sleepTimeMillisAfterBatch = new AtomicInteger(initialSleepMillis);
+        }
         return _sleepTimeMillisAfterBatch;
     }
 

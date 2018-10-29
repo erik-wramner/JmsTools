@@ -17,6 +17,7 @@ package name.wramner.jmstools.producer;
 
 import java.io.File;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -44,7 +45,7 @@ import name.wramner.jmstools.stopcontroller.StopController;
 public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClientWorker<T> {
     private final MessageProvider _messageProvider;
     private final int _messagesPerBatch;
-    private final long _sleepTimeMillisAfterBatch;
+    private final AtomicInteger _sleepTimeMillisAfterBatch;
     private final boolean _idAndChecksumEnabled;
     private final double _delayedDeliveryProbability;
     private final int _delayedDeliverySeconds;
@@ -129,8 +130,9 @@ public class EnqueueWorker<T extends JmsProducerConfiguration> extends JmsClient
             }
 
             commitOrRollback(resourceManager, numberOfMessages);
-            if (_sleepTimeMillisAfterBatch > 0) {
-                _stopController.waitForTimeoutOrDone(_sleepTimeMillisAfterBatch);
+            int sleepMillis = _sleepTimeMillisAfterBatch.get();
+            if (sleepMillis > 0) {
+                _stopController.waitForTimeoutOrDone(sleepMillis);
             }
         }
     }

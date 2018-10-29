@@ -67,6 +67,11 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, counter), "StatisticsLogger"));
         }
+        if (config.getTargetTpm() != null) {
+            threads.add(new Thread(new ConstantThroughputRegulator(stopController, config.getTargetTpm(),
+                            config.getSleepTimeMillisAfterBatch(), counter, config.getThreads(),
+                            config.getMessagesPerBatch())));
+        }
         return threads;
     }
 
