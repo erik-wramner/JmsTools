@@ -15,6 +15,7 @@
  */
 package name.wramner.jmstools;
 
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -45,6 +46,7 @@ import org.hsqldb.cmdline.SqlFile;
 import org.hsqldb.cmdline.SqlToolError;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
+import org.jfree.chart.JFreeChart;
 import org.jfree.data.time.Minute;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
@@ -217,18 +219,23 @@ public class LogAnalyzer {
      */
     public static class PeriodMetrics {
         private final Timestamp periodStart;
-        private final int _produced;
-        private final int _consumed;
+        private final int _producedCount;
+        private final int _consumedCount;
+        private final int _producedBytes;
+        private final int _consumedBytes;
         private final int _maxProducedSize;
         private final int _maxConsumedSize;
         private final int _medianProducedSize;
         private final int _medianConsumedSize;
 
-        public PeriodMetrics(Timestamp periodStart, int produced, int consumed, int maxProducedSize,
-                        int maxConsumedSize, int medianProducedSize, int medianConsumedSize) {
+        public PeriodMetrics(Timestamp periodStart, int producedCount, int consumedCount, int producedBytes,
+                        int consumedBytes, int maxProducedSize, int maxConsumedSize, int medianProducedSize,
+                        int medianConsumedSize) {
             this.periodStart = periodStart;
-            _produced = produced;
-            _consumed = consumed;
+            _producedCount = producedCount;
+            _consumedCount = consumedCount;
+            _producedBytes = producedBytes;
+            _consumedBytes = consumedBytes;
             _maxProducedSize = maxProducedSize;
             _maxConsumedSize = maxConsumedSize;
             _medianProducedSize = medianProducedSize;
@@ -244,11 +251,23 @@ public class LogAnalyzer {
         }
 
         public int getProduced() {
-            return _produced;
+            return _producedCount;
         }
 
         public int getConsumed() {
-            return _consumed;
+            return _consumedCount;
+        }
+
+        public int getTotalBytes() {
+            return getProducedBytes() + getConsumedBytes();
+        }
+
+        public int getProducedBytes() {
+            return _producedBytes;
+        }
+
+        public int getConsumedBytes() {
+            return _consumedBytes;
         }
 
         public int getMaxProducedSize() {
@@ -432,6 +451,56 @@ public class LogAnalyzer {
             }
         }
 
+        public String getBase64MessagesPerMinuteImage() {
+            TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+            TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+            TimeSeries timeSeriesTotal = new TimeSeries("Total");
+            for (PeriodMetrics m : getMessagesPerMinute()) {
+                Minute minute = new Minute(m.getPeriodStart());
+                timeSeriesConsumed.add(minute, m.getConsumed());
+                timeSeriesProduced.add(minute, m.getProduced());
+                timeSeriesTotal.add(minute, m.getConsumed() + m.getProduced());
+            }
+            TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+            timeSeriesCollection.addSeries(timeSeriesProduced);
+            timeSeriesCollection.addSeries(timeSeriesTotal);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per minute", "Time", "Messages",
+                                timeSeriesCollection);
+                chart.getPlot().setBackgroundPaint(Color.WHITE);
+                ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+        }
+
+        public String getBase64BytesPerMinuteImage() {
+            TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+            TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+            TimeSeries timeSeriesTotal = new TimeSeries("Total");
+            for (PeriodMetrics m : getMessagesPerMinute()) {
+                Minute minute = new Minute(m.getPeriodStart());
+                timeSeriesConsumed.add(minute, m.getConsumedBytes() / 1024);
+                timeSeriesProduced.add(minute, m.getProducedBytes() / 1024);
+                timeSeriesTotal.add(minute, m.getTotalBytes() / 1024);
+            }
+            TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+            timeSeriesCollection.addSeries(timeSeriesProduced);
+            timeSeriesCollection.addSeries(timeSeriesTotal);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                JFreeChart chart = ChartFactory.createTimeSeriesChart("Kilobytes per minute", "Time", "Bytes (k)",
+                                timeSeriesCollection);
+                chart.getPlot().setBackgroundPaint(Color.WHITE);
+                ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+        }
+
         public String getBase64EncodedFlightTimeMetricsImage() {
             TimeSeries timeSeries50p = new TimeSeries("Median");
             TimeSeries timeSeries95p = new TimeSeries("95 percentile");
@@ -447,9 +516,10 @@ public class LogAnalyzer {
             timeSeriesCollection.addSeries(timeSeriesMax);
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             try {
-                ChartUtilities.writeChartAsPNG(bos,
-                                ChartFactory.createTimeSeriesChart("Flight time", "Time", "ms", timeSeriesCollection),
-                                1024, 500);
+                JFreeChart chart = ChartFactory.createTimeSeriesChart("Flight time", "Time", "ms",
+                                timeSeriesCollection);
+                chart.getPlot().setBackgroundPaint(Color.WHITE);
+                ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -467,12 +537,17 @@ public class LogAnalyzer {
         }
 
         public List<PeriodMetrics> getMessagesPerMinute() {
+            // This is called multiple times but intentionally NOT cached as it takes too much memory
             try (Statement stat = _conn.createStatement();
-                 ResultSet rs = stat.executeQuery("select * from messages_per_minute order by time_period")) {
+                 ResultSet rs = stat.executeQuery("select time_period, produced_count, consumed_count,"
+                                 + " produced_bytes, consumed_bytes," + " produced_max_size, consumed_max_size,"
+                                 + " produced_median_size, consumed_median_size"
+                                 + " from messages_per_minute order by time_period")) {
                 List<PeriodMetrics> list = new ArrayList<>();
                 while (rs.next()) {
                     list.add(new PeriodMetrics(rs.getTimestamp("time_period"), rs.getInt("produced_count"),
-                                    rs.getInt("consumed_count"), rs.getInt("produced_max_size"),
+                                    rs.getInt("consumed_count"), rs.getInt("produced_bytes"),
+                                    rs.getInt("consumed_bytes"), rs.getInt("produced_max_size"),
                                     rs.getInt("consumed_max_size"), rs.getInt("produced_median_size"),
                                     rs.getInt("consumed_median_size")));
                 }

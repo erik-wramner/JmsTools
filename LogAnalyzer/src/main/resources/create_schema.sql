@@ -81,6 +81,8 @@ create view if not exists produced_per_minute as
 create view if not exists messages_per_minute as
   select p.total_count produced_count,
          c.total_count consumed_count,
+         p.total_bytes produced_bytes,
+         c.total_bytes consumed_bytes,
          p.max_size produced_max_size,
          c.max_size consumed_max_size,
          p.median_size produced_median_size,

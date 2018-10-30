@@ -194,14 +194,17 @@ caption {
             <tr>
                 <th rowspan="2">Period</th>
                 <th rowspan="2" align="right">Total #</th>
-                <th colspan="3">Produced</th>
-                <th colspan="3">Consumed</th>
+                <th rowspan="2" align="right">Total bytes</th>
+                <th colspan="4">Produced</th>
+                <th colspan="4">Consumed</th>
             </tr>
             <tr>
                 <th>Count</th>
+                <th>Bytes</th>
                 <th>Max message size</th>
                 <th>Median message size</th>
                 <th>Count</th>
+                <th>Bytes</th>
                 <th>Max message size</th>
                 <th>Median message size</th>
             </tr>
@@ -210,15 +213,21 @@ caption {
             <tr th:each="m : ${dataProvider.messagesPerMinute}">
                 <td th:text="${m.periodStart}">2018-12-01 16:00</td>
                 <td th:text="${m.total}" align="right">10000</td>
+                <td th:text="${m.totalBytes}" align="right">100000</td>
                 <td th:text="${m.produced}" align="right">8000</td>
+                <td th:text="${m.producedBytes}" align="right">8000</td>
                 <td th:text="${m.maxProducedSize}" align="right">100</td>
                 <td th:text="${m.medianProducedSize}" align="right">100</td>
                 <td th:text="${m.consumed}" align="right">2000</td>
+                <td th:text="${m.consumedBytes}" align="right">2000</td>
                 <td th:text="${m.maxConsumedSize}" align="right">100</td>
                 <td th:text="${m.medianConsumedSize}" align="right">100</td>
             </tr>
         </tbody>
     </table>
+    <img th:src="${dataProvider.base64MessagesPerMinuteImage}">
+    <br>
+    <img th:src="${dataProvider.base64BytesPerMinuteImage}">
 
     <h3>Flight time</h3>
     <div th:if="${dataProvider.flightTimeDataAvailable}" th:remove="tag">
