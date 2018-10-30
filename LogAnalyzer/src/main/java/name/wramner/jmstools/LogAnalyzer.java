@@ -346,6 +346,8 @@ public class LogAnalyzer {
         private final int _alienMessageCount;
         private final int _undeadMessageCount;
         private final int _delayedMessageCount;
+        private final int _rolledBackProducedCount;
+        private final int _rolledBackConsumedCount;
         private List<FlightTimeMetrics> _flightTimeMetrics;
 
         /**
@@ -365,6 +367,8 @@ public class LogAnalyzer {
             _alienMessageCount = findSimpleCount("alien_messages");
             _undeadMessageCount = findSimpleCount("undead_messages");
             _delayedMessageCount = findWithIntResult("select count(*) from produced_messages where delay_seconds > 0");
+            _rolledBackProducedCount = findWithIntResult("select count(*) from produced_messages where outcome = 'R'");
+            _rolledBackConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = 'R'");
         }
 
         public Timestamp getStartTime() {
@@ -373,6 +377,14 @@ public class LogAnalyzer {
 
         public Timestamp getEndTime() {
             return _endTime;
+        }
+
+        public int getRolledBackProducedCount() {
+            return _rolledBackProducedCount;
+        }
+
+        public int getRolledBackConsumedCount() {
+            return _rolledBackConsumedCount;
         }
 
         public int getTotalMessageCount() {

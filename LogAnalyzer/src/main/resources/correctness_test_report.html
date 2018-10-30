@@ -41,12 +41,9 @@ caption {
         and <span th:text="${dataProvider.consumedMessageCount}">1000</span> consumed. Of the produced messages <span
             th:text="${dataProvider.delayedMessageCount}">10</span> (<span
             th:text="${#numbers.formatDecimal(dataProvider.delayedMessagePercentage, 1, 2)}">1.00</span>%) were delayed.
-
-
-
-
-
-    
+        These totals include committed and rolled back messages. Of the produced messages <span
+            th:text="${dataProvider.rolledBackProducedCount}">0</span> were rolled back. Of the consumed messages <span
+            th:text="${dataProvider.rolledBackConsumedCount}">0</span> were rolled back.
     <h2>Correctness</h2>
     <p>
         This part focuses on correctness and relies on the JmsTools id option. The goal is to ensure that the messaging
