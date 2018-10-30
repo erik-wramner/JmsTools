@@ -17,17 +17,16 @@ package name.wramner.jmstools;
 
 import java.awt.Color;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -125,7 +124,7 @@ public class LogAnalyzer {
         Context context = new Context();
         DataProvider dataProvider = new DataProvider(conn);
         context.setVariable("dataProvider", dataProvider);
-        try (Writer writer = new BufferedWriter(new FileWriter(config.getReportFile()))) {
+        try (Writer writer = Files.newBufferedWriter(config.getReportFile().toPath(), Charset.forName("UTF-8"))) {
             engine.process(templateFile != null ? templateFile.getPath()
                             : (dataProvider.isCorrectnessTest() ? "correctness_test_report.html"
                                             : "perf_test_report.html"),
