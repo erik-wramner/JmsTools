@@ -37,9 +37,10 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.impl.factory.primitive.IntLists;
 import org.hsqldb.cmdline.SqlFile;
 import org.hsqldb.cmdline.SqlToolError;
 import org.jfree.chart.ChartFactory;
@@ -277,17 +278,14 @@ public class LogAnalyzer {
         private final int _max;
         private final int _median;
         private final int _percentile95;
-        private final int _percentile98;
 
-        public FlightTimeMetrics(Timestamp period, int count, int min, int max, int median, int percentile95,
-                        int percentile98) {
+        public FlightTimeMetrics(Timestamp period, int count, int min, int max, int median, int percentile95) {
             _period = period;
             _count = count;
             _min = min;
             _max = max;
             _median = median;
             _percentile95 = percentile95;
-            _percentile98 = percentile98;
         }
 
         public Timestamp getPeriod() {
@@ -312,10 +310,6 @@ public class LogAnalyzer {
 
         public int getPercentile95() {
             return _percentile95;
-        }
-
-        public int getPercentile98() {
-            return _percentile98;
         }
     }
 
@@ -417,7 +411,7 @@ public class LogAnalyzer {
                                  + " from message_flight_time order by 1")) {
                 if (rs.next()) {
                     Timestamp lastTime = rs.getTimestamp(1);
-                    List<Integer> flightTimes = new ArrayList<Integer>();
+                    MutableIntList flightTimes = IntLists.mutable.empty();
                     do {
                         Timestamp time = rs.getTimestamp(1);
                         int flightTimeMillis = rs.getInt(2);
@@ -425,9 +419,8 @@ public class LogAnalyzer {
                             list.add(computeFlightTimeMetrics(lastTime, flightTimes));
                             flightTimes.clear();
                             lastTime = time;
-                        } else {
-                            flightTimes.add(Integer.valueOf(flightTimeMillis));
                         }
+                        flightTimes.add(flightTimeMillis);
                     } while (rs.next());
                     if (!flightTimes.isEmpty()) {
                         list.add(computeFlightTimeMetrics(lastTime, flightTimes));
@@ -442,18 +435,15 @@ public class LogAnalyzer {
         public String getBase64EncodedFlightTimeMetricsImage() {
             TimeSeries timeSeries50p = new TimeSeries("Median");
             TimeSeries timeSeries95p = new TimeSeries("95 percentile");
-            TimeSeries timeSeries98p = new TimeSeries("98 percentile");
             TimeSeries timeSeriesMax = new TimeSeries("Max");
             for (FlightTimeMetrics m : getFlightTimeMetrics()) {
                 Minute minute = new Minute(m.getPeriod());
                 timeSeries50p.add(minute, m.getMedian());
                 timeSeries95p.add(minute, m.getPercentile95());
-                timeSeries98p.add(minute, m.getPercentile98());
                 timeSeriesMax.add(minute, m.getMax());
             }
             TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries50p);
             timeSeriesCollection.addSeries(timeSeries95p);
-            timeSeriesCollection.addSeries(timeSeries98p);
             timeSeriesCollection.addSeries(timeSeriesMax);
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             try {
@@ -466,15 +456,14 @@ public class LogAnalyzer {
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
         }
 
-        private FlightTimeMetrics computeFlightTimeMetrics(Timestamp time, List<Integer> flightTimes) {
-            Collections.sort(flightTimes);
+        private FlightTimeMetrics computeFlightTimeMetrics(Timestamp time, MutableIntList flightTimes) {
+            flightTimes.sortThis();
             int numberOfMeasurements = flightTimes.size();
             int medianIndex = (numberOfMeasurements * 50 / 100);
             int percentile95Index = (numberOfMeasurements * 95 / 100);
-            int percentile98Index = (numberOfMeasurements * 98 / 100);
             return new FlightTimeMetrics(time, flightTimes.size(), flightTimes.get(0),
                             flightTimes.get(flightTimes.size() - 1), flightTimes.get(medianIndex),
-                            flightTimes.get(percentile95Index), flightTimes.get(percentile98Index));
+                            flightTimes.get(percentile95Index));
         }
 
         public List<PeriodMetrics> getMessagesPerMinute() {

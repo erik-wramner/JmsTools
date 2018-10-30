@@ -8,6 +8,8 @@ create table if not exists consumed_messages (
 );
 
 create index if not exists ix_cm_app_id on consumed_messages (application_id);
+create index if not exists ix_cm_outcome_time on consumed_messages (outcome_time);
+create index if not exists ix_cm_consumed_time on consumed_messages (consumed_time);
 
 create table if not exists produced_messages (
   jms_id         varchar(256) not null,
@@ -21,6 +23,8 @@ create table if not exists produced_messages (
 );
 
 create index if not exists ix_pm_app_id on produced_messages (application_id);
+create index if not exists ix_pm_outcome_time on produced_messages (outcome_time);
+create index if not exists ix_pm_produced_time on produced_messages (produced_time);
 
 create view if not exists ghost_messages as
   select cm.* from consumed_messages cm
