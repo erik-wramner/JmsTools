@@ -379,12 +379,28 @@ public class LogAnalyzer {
             return _endTime;
         }
 
+        public int getCommittedProducedBytes() {
+            return findWithIntResult("select sum(payload_size) from produced_messages where outcome = 'C'");
+        }
+
+        public int getCommittedConsumedBytes() {
+            return findWithIntResult("select sum(payload_size) from consumed_messages where outcome = 'C'");
+        }
+
         public int getRolledBackProducedCount() {
             return _rolledBackProducedCount;
         }
 
         public int getRolledBackConsumedCount() {
             return _rolledBackConsumedCount;
+        }
+
+        public int getCommittedProducedCount() {
+            return getProducedMessageCount() - getRolledBackProducedCount();
+        }
+
+        public int getCommittedConsumedCount() {
+            return getConsumedMessageCount() - getRolledBackConsumedCount();
         }
 
         public int getTotalMessageCount() {
