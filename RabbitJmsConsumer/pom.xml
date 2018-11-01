@@ -9,7 +9,7 @@
   </parent>
   <groupId>name.wramner.jmstools</groupId>
   <artifactId>RabbitJmsConsumer</artifactId>
-  <version>${parent.version}</version>
+  <version>1.9-SNAPSHOT</version>
   <licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>
