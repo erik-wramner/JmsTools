@@ -38,6 +38,12 @@ public abstract class JmsClientConfiguration {
     private static final int DEFAULT_TM_CHECKPOINT_INTERVAL_SECONDS = 30;
     private static final int DEFAULT_TM_RECOVERY_INTERVAL_SECONDS = 60;
 
+    @Option(name = "-v", aliases = { "--version" }, usage = "Print version")
+    private boolean _printVersion;
+
+    @Option(name = "-?", aliases = { "--help", "--options" }, usage = "Print help text with options")
+    private boolean _help;
+
     @Option(name = "-t", aliases = { "--threads" }, usage = "Number of threads")
     private int _threads = 1;
 
@@ -100,6 +106,24 @@ public abstract class JmsClientConfiguration {
 
     @Option(name = "-noretry", aliases = "--abort-on-errors", usage = "Abort on errors, do not try again")
     private boolean _abortOnError;
+
+    /**
+     * Check if version should be printed.
+     *
+     * @return true to print version.
+     */
+    public boolean isPrintVersion() {
+        return _printVersion;
+    }
+
+    /**
+     * Check if the user wants to get help.
+     *
+     * @return true to show help.
+     */
+    public boolean isHelpRequested() {
+        return _help;
+    }
 
     /**
      * Check if running without transactions.

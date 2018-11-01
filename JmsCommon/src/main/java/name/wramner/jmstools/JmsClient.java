@@ -56,12 +56,10 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
                 List<Thread> threads = createThreadsWithWorkers(config);
                 startThreads(threads);
                 waitForThreadsToComplete(threads);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("Failed with exception: " + e.getMessage());
                 e.printStackTrace(System.out);
-            }
-            finally {
+            } finally {
                 if (_userTransactionService != null) {
                     int maxWaitSeconds = config.getJtaTimeoutSeconds() + 10;
                     _userTransactionService.shutdown(TimeUnit.MILLISECONDS.convert(maxWaitSeconds, TimeUnit.SECONDS));
@@ -82,12 +80,11 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         Properties props = new Properties();
         if (config.isTmLogDisabled()) {
             props.setProperty("com.atomikos.icatch.enable_logging", "false");
-        }
-        else {
-            props.setProperty("com.atomikos.icatch.checkpoint_interval",
-                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getCheckpointIntervalSeconds(), TimeUnit.SECONDS)));
-            props.setProperty("com.atomikos.icatch.recovery_delay",
-                String.valueOf(TimeUnit.MILLISECONDS.convert(config.getRecoveryIntervalSeconds(), TimeUnit.SECONDS)));
+        } else {
+            props.setProperty("com.atomikos.icatch.checkpoint_interval", String.valueOf(
+                            TimeUnit.MILLISECONDS.convert(config.getCheckpointIntervalSeconds(), TimeUnit.SECONDS)));
+            props.setProperty("com.atomikos.icatch.recovery_delay", String.valueOf(
+                            TimeUnit.MILLISECONDS.convert(config.getRecoveryIntervalSeconds(), TimeUnit.SECONDS)));
             if (config.getXaLogBaseDir() != null) {
                 props.setProperty("com.atomikos.icatch.log_base_dir", config.getXaLogBaseDir().getAbsolutePath());
             }
@@ -95,11 +92,11 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         props.setProperty("com.atomikos.icatch.automatic_resource_registration", "true");
         props.setProperty("com.atomikos.icatch.max_actives", String.valueOf(config.getThreads() + 1));
         String jtaTimeoutMillis = String
-            .valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(), TimeUnit.SECONDS));
+                        .valueOf(TimeUnit.MILLISECONDS.convert(config.getJtaTimeoutSeconds(), TimeUnit.SECONDS));
         props.setProperty("com.atomikos.icatch.max_timeout", jtaTimeoutMillis);
         props.setProperty("com.atomikos.icatch.default_jta_timeout", jtaTimeoutMillis);
         props.setProperty("com.atomikos.icatch.tm_unique_name",
-            config.getTmName() != null ? config.getTmName() : createTmName());
+                        config.getTmName() != null ? config.getTmName() : createTmName());
         return props;
     }
 
@@ -140,13 +137,30 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         CmdLineParser parser = new CmdLineParser(config);
         try {
             parser.parseArgument(args);
+            if (config.isPrintVersion()) {
+                printVersion();
+            }
+            if (config.isHelpRequested()) {
+                printUsage(parser);
+                return false;
+            }
             return isConfigurationValid(config);
-        }
-        catch (CmdLineException e) {
+        } catch (CmdLineException e) {
+            if (config.isPrintVersion()) {
+                printVersion();
+            }
             printUsage(parser);
             System.out.println("Error: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Print program name and version.
+     */
+    private void printVersion() {
+        String version = getClass().getPackage().getImplementationVersion();
+        System.out.println(getClass().getSimpleName() + " " + (version != null ? version : "(unknown version)"));
     }
 
     /**
@@ -168,8 +182,7 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
         for (Thread t : threads) {
             try {
                 t.join();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 System.err.println("*** Interrupted - killing remaining threads!");
                 System.exit(0);
             }
