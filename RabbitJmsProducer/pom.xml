@@ -55,7 +55,7 @@
             </goals>
             <configuration>
               <minimizeJar>false</minimizeJar>
-              <outputFile>target/RabbitJmsProducer.jar</outputFile>
+              <outputFile>../shaded-jars/RabbitJmsProducer.jar</outputFile>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>

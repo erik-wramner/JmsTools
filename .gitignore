@@ -6,3 +6,4 @@ bin
 *.log
 tmlog.lck
 AqJmsCommon/lib/
+shaded-jars
