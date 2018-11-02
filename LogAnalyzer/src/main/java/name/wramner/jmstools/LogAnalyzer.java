@@ -220,15 +220,15 @@ public class LogAnalyzer {
         private final Timestamp periodStart;
         private final int _producedCount;
         private final int _consumedCount;
-        private final int _producedBytes;
-        private final int _consumedBytes;
+        private final long _producedBytes;
+        private final long _consumedBytes;
         private final int _maxProducedSize;
         private final int _maxConsumedSize;
         private final int _medianProducedSize;
         private final int _medianConsumedSize;
 
-        public PeriodMetrics(Timestamp periodStart, int producedCount, int consumedCount, int producedBytes,
-                        int consumedBytes, int maxProducedSize, int maxConsumedSize, int medianProducedSize,
+        public PeriodMetrics(Timestamp periodStart, int producedCount, int consumedCount, long producedBytes,
+                        long consumedBytes, int maxProducedSize, int maxConsumedSize, int medianProducedSize,
                         int medianConsumedSize) {
             this.periodStart = periodStart;
             _producedCount = producedCount;
@@ -257,15 +257,15 @@ public class LogAnalyzer {
             return _consumedCount;
         }
 
-        public int getTotalBytes() {
+        public long getTotalBytes() {
             return getProducedBytes() + getConsumedBytes();
         }
 
-        public int getProducedBytes() {
+        public long getProducedBytes() {
             return _producedBytes;
         }
 
-        public int getConsumedBytes() {
+        public long getConsumedBytes() {
             return _consumedBytes;
         }
 
@@ -379,12 +379,12 @@ public class LogAnalyzer {
             return _endTime;
         }
 
-        public int getCommittedProducedBytes() {
-            return findWithIntResult("select sum(payload_size) from produced_messages where outcome = 'C'");
+        public long getCommittedProducedBytes() {
+            return findWithLongResult("select sum(payload_size) from produced_messages where outcome = 'C'");
         }
 
-        public int getCommittedConsumedBytes() {
-            return findWithIntResult("select sum(payload_size) from consumed_messages where outcome = 'C'");
+        public long getCommittedConsumedBytes() {
+            return findWithLongResult("select sum(payload_size) from consumed_messages where outcome = 'C'");
         }
 
         public int getRolledBackProducedCount() {
@@ -567,14 +567,14 @@ public class LogAnalyzer {
             // This is called multiple times but intentionally NOT cached as it takes too much memory
             try (Statement stat = _conn.createStatement();
                  ResultSet rs = stat.executeQuery("select time_period, produced_count, consumed_count,"
-                                 + " produced_bytes, consumed_bytes," + " produced_max_size, consumed_max_size,"
+                                 + " produced_bytes, consumed_bytes, produced_max_size, consumed_max_size,"
                                  + " produced_median_size, consumed_median_size"
                                  + " from messages_per_minute order by time_period")) {
                 List<PeriodMetrics> list = new ArrayList<>();
                 while (rs.next()) {
                     list.add(new PeriodMetrics(rs.getTimestamp("time_period"), rs.getInt("produced_count"),
-                                    rs.getInt("consumed_count"), rs.getInt("produced_bytes"),
-                                    rs.getInt("consumed_bytes"), rs.getInt("produced_max_size"),
+                                    rs.getInt("consumed_count"), rs.getLong("produced_bytes"),
+                                    rs.getLong("consumed_bytes"), rs.getInt("produced_max_size"),
                                     rs.getInt("consumed_max_size"), rs.getInt("produced_median_size"),
                                     rs.getInt("consumed_median_size")));
                 }
@@ -670,6 +670,17 @@ public class LogAnalyzer {
         private boolean findExists(String sql) {
             try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
                 return rs.next();
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
+        }
+
+        private long findWithLongResult(String sql) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+                return 0;
             } catch (SQLException e) {
                 throw new UncheckedSqlException(e);
             }

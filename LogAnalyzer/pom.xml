@@ -79,7 +79,7 @@
             </goals>
             <configuration>
               <minimizeJar>false</minimizeJar>
-              <outputFile>target/LogAnalyzer.jar</outputFile>
+              <outputFile>../shaded-jars/LogAnalyzer.jar</outputFile>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
