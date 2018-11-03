@@ -36,7 +36,7 @@ Some of the options:
 * Duration-based tests.
 * Count-based tests.
 * Configurable receive timeouts, polling delays, batch sizes, sleep times after each
-  batch and much more.
+  batch, constant throughput regulation and much more.
 * Client-side producer flow control for AQ.
 * XA transactions (two-phase commits) where supported.
 * A log analyzer that helps make sense of the recorded test results.

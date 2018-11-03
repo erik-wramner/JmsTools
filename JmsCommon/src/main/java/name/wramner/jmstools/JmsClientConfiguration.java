@@ -112,7 +112,7 @@ public abstract class JmsClientConfiguration {
      *
      * @return true to print version.
      */
-    public boolean isPrintVersion() {
+    public boolean isPrintVersionRequested() {
         return _printVersion;
     }
 

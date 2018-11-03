@@ -135,24 +135,25 @@ public abstract class JmsClient<T extends JmsClientConfiguration> {
      */
     protected boolean parseCommandLine(String[] args, T config) {
         CmdLineParser parser = new CmdLineParser(config);
+        String validationError = null;
         try {
             parser.parseArgument(args);
-            if (config.isPrintVersion()) {
-                printVersion();
-            }
-            if (config.isHelpRequested()) {
-                printUsage(parser);
-                return false;
-            }
-            return isConfigurationValid(config);
         } catch (CmdLineException e) {
-            if (config.isPrintVersion()) {
-                printVersion();
-            }
+            validationError = e.getMessage();
+        }
+
+        if (config.isPrintVersionRequested()) {
+            printVersion();
+        }
+        if (validationError != null || config.isHelpRequested()) {
             printUsage(parser);
-            System.out.println("Error: " + e.getMessage());
+            if (!config.isHelpRequested()) {
+                System.out.println("Error: " + validationError);
+            }
             return false;
         }
+
+        return isConfigurationValid(config);
     }
 
     /**

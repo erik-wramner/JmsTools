@@ -83,6 +83,7 @@ public class LogAnalyzer {
      * @param args The command line arguments.
      */
     public void run(String[] args) {
+        printVersion();
         Configuration config = new Configuration();
         if (parseCommandLine(args, config)) {
             Connection conn = null;
@@ -743,7 +744,8 @@ public class LogAnalyzer {
         CmdLineParser parser = new CmdLineParser(config);
         try {
             parser.parseArgument(args);
-            if (config.getRemainingArguments() == null || config.getRemainingArguments().isEmpty()) {
+            if (config.getRemainingArguments() == null || config.getRemainingArguments().isEmpty()
+                            || config.isHelpRequested()) {
                 printUsage(parser);
                 return false;
             } else {
@@ -751,7 +753,9 @@ public class LogAnalyzer {
             }
         } catch (CmdLineException e) {
             printUsage(parser);
-            System.out.println("Error: " + e.getMessage());
+            if (!config.isHelpRequested()) {
+                System.out.println("Error: " + e.getMessage());
+            }
             return false;
         }
     }
@@ -767,6 +771,14 @@ public class LogAnalyzer {
         System.out.println("Where the options are:");
         parser.printUsage(System.out);
         System.out.println();
+    }
+
+    /**
+     * Print program name and version.
+     */
+    private void printVersion() {
+        String version = getClass().getPackage().getImplementationVersion();
+        System.out.println(getClass().getSimpleName() + " " + (version != null ? version : "(unknown version)"));
     }
 
     private void importFilesInDirectory(Connection conn, File directory) throws IOException, SQLException {
@@ -885,6 +897,9 @@ public class LogAnalyzer {
         private static final String DEFAULT_JDBC_PASSWORD = "";
         private static final String DEFAULT_REPORT_FILE = "report.html";
 
+        @Option(name = "-?", aliases = { "--help", "--options" }, usage = "Print help text with options")
+        private boolean _help;
+
         @Option(name = "-i", aliases = "--interactive", usage = "Open a SQL prompt for custom queries")
         private boolean _interactive;
 
@@ -905,6 +920,10 @@ public class LogAnalyzer {
 
         @Argument
         private List<String> _args = new ArrayList<String>();
+
+        public boolean isHelpRequested() {
+            return _help;
+        }
 
         public File getTemplateFile() {
             return _templateFile;
