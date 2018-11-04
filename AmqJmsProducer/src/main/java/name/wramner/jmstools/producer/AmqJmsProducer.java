@@ -32,14 +32,14 @@ import name.wramner.jmstools.producer.AmqJmsProducer.AmqProducerConfiguration;
 
 /**
  * Command line JMS ActiveMQ message producer intended for benchmarks and other tests.
- * 
+ *
  * @author Erik Wramner
  */
 public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command line.
      * @see AmqProducerConfiguration
      */
@@ -49,7 +49,7 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
 
     /**
      * Create configuration specific to the AMQ client.
-     * 
+     *
      * @return configuration instance.
      * @see name.wramner.jmstools.producer.JmsProducer#createConfiguration()
      */
@@ -61,17 +61,18 @@ public class AmqJmsProducer extends JmsProducer<AmqProducerConfiguration> {
     /**
      * ActiveMQ producer configuration. It extends the basic JMS producer configuration with ActiveMQ-specific settings
      * such as broker URL, user and password needed in order to connect to the ActiveMQ broker.
-     * 
+     *
      * @author Erik Wramner
      */
     public static class AmqProducerConfiguration extends JmsProducerConfiguration {
         @Option(name = "-url", aliases = { "--jms-broker-url" }, usage = "ActiveMQ broker URL", required = true)
         private String _brokerUrl;
 
-        @Option(name = "-user", aliases = { "--jms-user" }, usage = "ActiveMQ user name if using authentication")
+        @Option(name = "-user", aliases = { "--jms-user",
+                        "--jms-broker-user" }, usage = "ActiveMQ user name if using authentication")
         private String _userName;
 
-        @Option(name = "-pw", aliases = {
+        @Option(name = "-pw", aliases = { "--jms-password",
                         "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = {
                                         "-user" })
         private String _password;

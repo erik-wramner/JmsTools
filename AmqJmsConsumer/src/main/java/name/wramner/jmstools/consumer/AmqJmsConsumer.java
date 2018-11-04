@@ -29,14 +29,14 @@ import name.wramner.jmstools.messages.ObjectMessageAdapter;
 
 /**
  * Command line JMS ActiveMQ message consumer intended for benchmarks and other tests.
- * 
+ *
  * @author Erik Wramner
  */
 public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command line.
      * @see AmqConsumerConfiguration
      */
@@ -55,17 +55,20 @@ public class AmqJmsConsumer extends JmsConsumer<AmqConsumerConfiguration> {
     /**
      * ActiveMQ consumer configuration. It extends the basic JMS consumer configuration with ActiveMQ-specific settings
      * such as broker URL, user and password needed in order to connect to the ActiveMQ broker.
-     * 
+     *
      * @author Erik Wramner
      */
     public static class AmqConsumerConfiguration extends JmsConsumerConfiguration {
         @Option(name = "-url", aliases = { "--jms-broker-url" }, usage = "ActiveMQ broker URL", required = true)
         private String _brokerUrl;
 
-        @Option(name = "-user", aliases = { "--jms-user" }, usage = "ActiveMQ user name if using authentication")
+        @Option(name = "-user", aliases = { "--jms-user",
+                        "--jms-broker-user" }, usage = "ActiveMQ user name if using authentication")
         private String _userName;
 
-        @Option(name = "-pw", aliases = { "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = { "-user" })
+        @Option(name = "-pw", aliases = { "--jms-password",
+                        "--jms-broker-password" }, usage = "ActiveMQ password if using authentication", depends = {
+                                        "-user" })
         private String _password;
 
         @Override
