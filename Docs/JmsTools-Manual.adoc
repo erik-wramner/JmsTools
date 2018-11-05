@@ -1,0 +1,712 @@
+[[jmstools_manual]]
+= JmsTools Manual
+:appversion: 1.9-SNAPSHOT
+:toc: left
+:toclevels: 4
+:tabsize: 4
+:docinfo1:
+:icons:
+
+This is the documentation for the JmsTools suite, designed for correctness
+and performance tests of JMS providers and applications. The suite supports
+many different JMS providers and a wide range of test types. It is open
+source and can be freely used. The documentation covers version {appversion}.
+
+
+[[getting_started]]
+== Getting started
+
+This part describes how to set things up and take the tools for a spin.
+
+[[buildig_jmstools]]
+=== Building JmsTools
+
+JmsTools requires Java SE 8 (or later) and Maven 3 to build. With Maven installed
+simply run `mvn clean package` in the main folder. Executable jar files should
+be created in the `shaded-jars` folder. All build dependencies are automatically
+downloaded by Maven.
+
+[source,bash]
+----
+# Clone repository or download manually, then build
+git clone https://github.com/erik-wramner/JmsTools.git
+cd JmsTools
+mvn clean package
+----
+
+The jar files can be used where they are, but are normally copied to a server
+and used stand-alone without the build environment. They do not depend on each other,
+so to test RabbitMQ only the two RabbitMQ files need to be copied.
+
+NOTE: Oracle keeps the Oracle JDBC drivers and the AQ JMS code private. They are free
+to use, but not to redistribute. In order to use AQ you need to download the JDBC driver
+from Oracle and grab the correct version of aqapi.jar from your Oracle database.
+See <<Testing Oracle AQ>>.
+
+=== Running a simple test
+
+When the jar files are in place we need a message broker. Download and start ActiveMQ.
+The example is for bash, but it is almost identical for Windows. Download the file,
+extract it and run `activemq start`.
+
+[source,bash]
+----
+curl http://archive.apache.org/dist/activemq/5.15.7/apache-activemq-5.15.7-bin.tar.gz \
+  --output apache-activemq-5.15.7-bin.tar.gz
+tar xfz apache-activemq-5.15.7-bin.tar.gz
+./apache-activemq-5.15.7/bin/activemq start
+----
+
+We should now have a local server listening on port 61616. It is a single-server with the
+default configuration, so there is room for improvement, but it should work. Just for fun
+we can do a simple correctness test. We will start a producer and a consumer that both
+log messages and let them run for a while, the kill the broker. We will start the broker
+again and wait for the test to finish.
+
+First start the producer. It will post to the default test queue with two threads
+and sleep 5 ms between each message to limit the number of messages. It will log
+statistics and details about the messages and it will set headers for correctness
+checks.
+
+[source,bash]
+----
+java -jar shaded-jars/AmqJmsProducer.jar -url 'tcp://localhost:61616' \
+  -t 2 -duration 10 -sleep 5 -stats -log logs -id
+----
+
+After about a minute the producer should print the first statistics line.
+The number tells how many messages that were posted.
+
+----
+2018-11-05 18:50:33,540 StatisticsLogger INFO  statistics 15250
+----
+
+Start the consumer in another terminal. It will use five threads and should run a
+bit longer than the producer to make sure that it consumes all messages. Just in
+case we ask it to drain the queue as well. It should log statistics and messages.
+
+[source,bash]
+----
+java -jar shaded-jars/AmqJmsConsumer.jar -url 'tcp://localhost:61616' \
+  -t 5 -duration 11 -drain -stats -log logs
+----
+
+The consumer also logs throughput. The first number is the number of messages
+consumed, the second the number of receive timeouts.
+
+----
+2018-11-05 18:51:55,494 StatisticsLogger INFO  statistics 17226	0
+----
+
+After a while, kill the ActiveMQ server. That is not nice, but things happen.
+Start it again. The producer and consumer should both reconnect and keep working.
+
+[source,bash]
+----
+kill -9 $(cat apache-activemq-5.15.7/data/activemq.pid)
+./apache-activemq-5.15.7/bin/activemq start
+----
+
+Wait for the two programs to finish. You could kill and start ActiveMQ again
+just for fun, but eventually time is up. First test completed! You get a nice
+accomplishment badge.
+
+=== Making sense of the results
+
+The test completed, but what now? Was it a great success? Did we learn anything?
+Time to fire up the log analyzer.
+
+[source,bash]
+----
+java -jar -Xms4G -Xmx4G shaded-jars/LogAnalyzer.jar logs
+----
+
+The log analyzer gets a 4G heap (`-Xms4G -Xmx4G`). That can be omitted, but the
+analyzer normally processes all the data in memory. With the default heap size it
+will often take a very long time due to garbage collection or fail with out of memory.
+A 4G heap is not particularly large, if more memory is available then use it.
+
+The log analyzer should produce a file named report.html. Open it in a browser
+and check it out!
+
+=== Testing Oracle AQ
+
+With Oracle we will use a Docker image. If you have an existing installation or
+prefer to use the free Oracle XE that will also work. Anyway, navigate to
+https://container-registry.oracle.com, register and login. Accept the terms
+and find the image for the Oracle database, any edition. Login with the docker
+client, pull and run the image. Follow the logs to see what is happening.
+
+[source,bash]
+----
+docker login container-registry.oracle.com
+docker run -d -it --name oracle12 -p 1521:1521 \
+  -v v_oradata:/ORCL \
+  container-registry.oracle.com/database/enterprise:12.2.0.1
+docker logs -f oracle12
+----
+
+The image is large and when it starts the first time the database is created. That
+can take several minutes. Eventually something like this should be logged:
+
+----
+Done ! The database is ready for use .
+# ===========================================================================  
+# == Add below entries to your tnsnames.ora to access this database server ==  
+# ====================== from external host =================================  
+ORCLCDB=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=<ip-address>)(PORT=<port>))
+    (CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=ORCLCDB.localdomain)))     
+ORCLPDB1=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=<ip-address>)(PORT=<port>))
+    (CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=ORCLPDB1.localdomain)))
+----
+
+Enter the container and find the jar files we need, then copy them. The paths
+may vary.
+
+[source,bash]
+----
+docker exec -it oracle12 /bin/bash
+find / -name ojdbc8.jar 2>/dev/null
+find / -name aqapi.jar 2>/dev/null
+exit
+docker cp oracle12:/u01/app/oracle/product/12.2.0/dbhome_1/jdbc/lib/ojdbc8.jar \
+  shaded-jars/
+docker cp oracle12:/u01/app/oracle/product/12.2.0/dbhome_1/rdbms/jlib/aqapi.jar \
+  shaded-jars/
+----
+
+Next we need to create a test user with a queue. Enter the docker container and
+run sqlplus as sys.
+
+[source,bash]
+----
+docker exec -it oracle12 /bin/bash
+sqlplus sys/Oradoc_db1@ORCLPDB1 as sysdba
+----
+
+Create the test user aqtest and grant the necessary privileges.
+
+[source,sql]
+----
+create user aqtest identified by ask_nicely
+  quota unlimited on users default tablespace users;
+grant aq_administrator_role to aqtest;
+grant create session to aqtest;
+----
+
+Exit, then connect again as aqtest.
+
+[source,bash]
+----
+sqlplus aqtest/ask_nicely@ORCLPDB1
+----
+
+Create a queue with backing queue table and start it.
+
+[source,sql]
+----
+begin
+  dbms_aqadm.create_queue_table(
+    queue_table        => 'test_qtab',
+    queue_payload_type => 'sys.aq$_jms_message',
+    storage_clause     =>
+    'lob (user_data.bytes_lob) store as securefile ' ||
+    '(retention none cache) ' ||
+    'lob (user_data.text_lob) store as securefile  ' ||
+    '(retention none cache) '  ||
+    'opaque type user_prop store as securefile ' ||
+    'lob (retention none cache)');
+  dbms_aqadm.create_queue(
+    queue_name             => 'test_queue',
+    queue_table            => 'test_qtab',
+    max_retries            => 1,
+    retry_delay            => 30,
+    retention_time         => 0);
+  dbms_aqadm.start_queue (queue_name => 'test_queue');
+end;
+/
+----
+
+Exit from sqlplus and the docker image. We are finally ready to send a message!
+
+[source,bash]
+----
+java -cp shaded-jars/AqJmsProducer.jar:shaded-jars/ojdbc8.jar:shaded-jars/aqapi.jar \
+  name.wramner.jmstools.producer.AqJmsProducer -user aqtest -pw ask_nicely \
+  -url jdbc:oracle:thin:@localhost:1521/ORCLPDB1.localdomain \
+  -count 1 -stats -d "Test message"
+java -cp shaded-jars/AqJmsConsumer.jar:shaded-jars/ojdbc8.jar:shaded-jars/aqapi.jar \
+  name.wramner.jmstools.consumer.AqJmsConsumer -user aqtest -pw ask_nicely \
+  -url jdbc:oracle:thin:@localhost:1521/ORCLPDB1.localdomain \
+  -drain -stats
+----
+
+Hopefully everything worked and the message was sent and received. Feel free to
+experiment with other options.
+
+
+[[options]]
+== Command line options
+
+This part covers all the command line options with a short description for each
+that outlines the intended use. It starts with the common options and proceeds
+with common consumer and producer options. Finally the provider-specific options
+are covered followed by the log analyzer options.
+
+NOTE: In addition to the program options there are thousands of Java options.
+See https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html.
+The most important ones are `-Xms` and `-Xmx` for controlling the heap size.
+
+=== General options
+
+*-v, --version*::
+Print the version for the tool. This can be particularly useful if the binary
+jar files are copied and used elsewhere.
+
+*-?, --help, --options*::
+Print the command line options for the tool.
+
+*-t, --threads*::
+The number of concurrent threads to use for consuming or producing messages.
+
+*-noretry, --abort-on-errors*::
+Normally the program will try again if something fails. It is designed to handle
+temporary glitches and reconnect. In some cases that is not desirable. This
+option makes the program abort on failure.
+
+*-queue, --queue-name*::
+The queue to receive from or send to. This is an optional parameter. If
+neither queue nor topic has been specified a queue named "test_queue"
+will be used.
+
+*-topic, --topic-name*::
+The topic to receive from or send to. This is an optional parameter. If
+neither queue nor topic has been specified a queue named "test_queue"
+will be used.
+
+NOTE: Topics are generally tricky to use in high performance situations
+as one message is *meant* to be consumed by multiple subscribers. Getting
+each message delivered exactly once *per application* when the application
+is distributed with multiple listeners is non-trivial. When possible use
+queues instead.
+
+*-stats, --log-statistics*::
+Log statistics every minute. The consumer logs the number of messages
+received and the number of timeouts, the producer logs the number of
+messages sent. These figures should not be used in test reports, they
+are useful to get a rough feeling for the throughput in interactive
+performance tests.
+
+*-log, --log-directory*::
+Log information about every message received or sent to a file in
+a directory. This includes times, if the message was committed or
+rolled back, JMS id and application id among other things. The logs
+are intended for use by the log analyzer.
+
+Logging is fairly efficient. Each thread gets its own log file and
+writes are buffered. That means that log entries may be lost if the
+tool is killed. Always allow it to stop gracefully in correctness tests.
+
+
+=== Test duration options
+
+There are many ways to control when a test is done. The options can be combined.
+
+If no options are specified the program will run forever (until killed). If
+a count and/or duration is specified it will run until the count is reached
+or the duration has passed, whichever comes first. If the consumer should
+drain the queue/topic it will first wait for the count or duration if
+given and then it will drain the queue. Finally if the producer has been
+configured with a directory with messages to send and ordered delivery
+it will stop when all messages have been sent.
+
+*-count, --stop-after-messages*::
+The approximate number of messages to process before stopping. When using
+a single thread and a batch size of one the count will be exact. However,
+the threads check if they should stop first; then they send a batch and
+increment the shared counter. The largest number of messages that may
+be processed is `count + batch size * (threads - 1)`. For example if
+each batch consists of 2 messages and there are 10 threads and the
+count is 100 the maximum number of messages processed would be
+100 + 2 * (10 -1) or 118. When this option is combined with a duration
+the test stops when the first condition is satisfied.
+
+*-duration, --duration-minutes*::
+The wall clock time for the test in minutes. When this option is combined
+with a count the test stops when the first condition is satisfied.
+
+*-drain, --until-drained* (consumer)::
+Run the test until all messages on the queue or topic have been consumed.
+The program does not know how many messages it should consume, so it will
+try until it fails, i.e. until a receive operation times out. Then it will
+stop.
+
+WARNING: Drain seems straightforward but can be tricky. The problem is
+that it may take a considerable time to deliver a message, so the receive
+timeout may be too short. That way the program stops early. For example,
+ActiveMQ configured with a network of brokers may need more than 10 s
+to deliver a message to a client connected to one broker when the
+message is originally stored on another broker. Always set a high
+receive timeout (10-15 s) with drain.
+
+=== Transaction options
+
+Transactions are essential for correctness and have a huge impact on
+performance. In particular XA (two phase) transactions can be very
+expensive, so if the application uses them it is important to run any
+performance tests with them as well.
+
+JmsTools can run without transactions (not recommended except for pure
+performance tests), with normal transactions or with full XA transactions.
+Normal transactions are used by default.
+
+*-notran, --no-transactions*::
+Run without transactions. This is the fastest, but several features are
+disabled. For example it makes no sense to rollback a message if it is
+processed without a transaction.
+
+*-xa, --xa-transactions*::
+Run with XA transactions, i.e. two phase commits. This is expensive, but
+can handle multiple resources (such as a message broker and a database)
+reasonably well.
+
+*-jtatimeout, --xa-jta-timeout-seconds*::
+The global transaction timeout for XA transactions in seconds, by default
+300 seconds.
+
+*-tmname, --xa-tm-name*::
+The unique name of the transaction manager. This is optional, but if the
+same client is started multiple times on the same machine the default name
+will not be unique.
+
+*-tmlogs, --xa-tm-log-directory*::
+The path to a directory where the XA transaction manager can keep transaction logs.
+This can become a bottleneck, so if possible use a fast disk. Of course, if the
+application will run with slow local disks, so should the test tool.
+
+*-notmlog, --xa-no-tm-log*::
+Disable transaction logs for the XA transaction manager. That means XA recovery
+goes out of the window, but performance will improve. Depending on the use case
+it may make sense to run without transaction logs.
+
+*-tmrecint, --xa-tm-recovery-interval-seconds*::
+The time in seconds between two XA recovery scans. The default is one minute,
+which is a reasonable.
+
+*-tmchkint, --xa-tm-checkpoint-interval-seconds*::
+The time in seconds between checkpoints for the XA transaction logs. The default
+is 30 seconds.
+
+*-commitdelay, --commit-delay-millis*::
+An optional delay in milliseconds before commit or rollback. This can be useful
+in correctness tests as it increases the likelyhood of killing a message broker
+when a transaction is in progress, i.e. after send or receive but before commit
+or rollback. A real application typically spends some time performing calculations
+or updating a database before it commits. This option can simulate that.
+
+*-rollback, --rollback-percentage*::
+The percentage of transactions that should be rolled back. Decimals are supported,
+so it is possible to specify 0.1 to roll back one in a thousand. A rollback can
+be expensive, so in performance tests the rollback percentage should be close to
+what the real application is likely to exhibit. In correctness tests rollbacks
+are vital. What good is a transaction if it cannot be rolled back?
+
+NOTE: Transactions are hard to get right, in particular XA transactions.
+Many products have bugs in this area. Be sure to test rollbacks, ideally with
+varying message sizes and while killing servers!
+
+*-commitempty, --commit-on-receive-timeout* (consumer)::
+Commit when a receive operation has timed out without returning data. In some
+cases this may be necessary to keep transaction timeouts in check.
+
+=== Consumer options
+
+*-verify, --verify-checksum*::
+Verify the checksum for each message. This is somewhat expensive, but can help
+find issues with messages that are corrupted in transit (yes, it happens). This
+works only if the messages have been produce with JmsTools with the id option
+enabled, otherwise there is no checksum header to compare with.
+
+*-timeout, --receive-timeout-ms*::
+The receive timeout in milliseconds, 0 means no wait (busy loop). The default
+is 5 seconds. Never use 0 without a polling delay!
+
+NOTE: With Oracle AQ it is much more efficient to sleep on the client side
+and receive without a timeout, as Oracle wakes up all pending receivers every
+time a new message arrives. That can consume quite a bit of CPU in the database.
+
+*-delay, --polling-delay-ms*::
+The sleep time in milliseconds before trying again when no message is returned.
+The default is 0, i.e. try again immediately. That is usually good when a receive
+timeout is used. Without a receive timeout it is essential to sleep on the client
+side.
+
+*-dir, --message-file-directory*::
+The path to a directory where consumed messages can be saved. This is of course
+fairly expensive. Each message produces two files. One contains human-readable
+information about the message including all headers and possibly the payload.
+The other contains the raw data.
+
+This option can be very useful for creating test data. Simply send real messages
+with the consuming application stopped and save them to disk. They can then be
+reused time and time again by the producer. It will not always work, but in some
+cases it is a very convenient way to get realistic data.
+
+=== Producer options
+
+*-type, --message-type*::
+The message type to produce, TEXT, BYTES or (with prepared messages) OBJECT.
+The default type is BYTES.
+
+*-d, --data*::
+The message message content in plain text. Unless a type has been set explicitly
+this will set the message type as TEXT.
+
+*-h, --headers*::
+JMS headers to set, header1=value1 header2=value2 and so on.
+
+*-dir, --message-file-directory*::
+The path to a directory with prepared messages, either saved by the consumer
+or created manually.
+
+NOTE: Always specify the message type when using prepared messages! An
+application expecting a text message will be confused if it gets bytes
+messages instead.
+
+*-ordered, --ordered-delivery*::
+Send messages in order when using prepared messages. This works best with
+a single thread. The messages will be handed out in order, but when there
+are multiple competing threads one can easily race past the other. By
+default messages are sent in random order and each message may potentially
+be sent multiple times.
+
+*-n, --number-of-messages*::
+The number of distinct messages to generate. The application generates the
+messages before it starts. That way they are ready to send without expensive
+processing when the test runs. The drawback (except memory) is that it takes
+a noticeable time when the application starts. The default is 100.
+
+*-min, --min-message-size*::
+The minimum message size to generate. Use a value that makes sense for the
+intended applications. The default value is 1k.
+
+*-max, --max-message-size*::
+The maximum message size to generate not counting outliers. The default
+value is 8k.
+
+*-outliers, --outlier-percentage*::
+The percentage of messages that should be very large compared to the
+normal maximum message size. Decimals are supported, so 0.1 means
+one message in a thousand. The default is no outliers.
+
+*-outliersize, --outlier-size*::
+The size of the very large messages (outliers) expressed as bytes (numeric)
+or with k, M or G suffixes. This should ideally correspond to the largest
+message the application(s) can send or expect to receive. The default
+is 16M.
+
+NOTE: It often comes as a surprise how large the messages can be and the
+effect of really large messages can be enormous. For example, a 16G XML
+message (yes, really) can literally take hours to process.
+
+*-enc, --message-file-encoding*::
+The character encoding to use for text messages, by default UTF-8.
+
+*-id, --id-and-checksum*::
+This is probably the most important option for correctness tests.
+It sets three custom JMS headers for every message: id, checksum
+and length. They can be checked on the other side and by the log
+analyzer, making sure that all messages are delivered exactly once
+and that they are not corrupted in transit. It happens.
+
+*-batchsize, --messages-per-batch*::
+The number of messages to send per batch/commit. The default is one.
+With a batch size of three the program sends three messages before
+it commits or rollbacks. As a commmit/rollback is expensive that is
+faster. Use it to model the real application in performance tests or
+to verify that all messages are committed or rolled back as a group
+in correctness tests.
+
+*-sleep, --sleep-time-ms*::
+The sleep time in milliseconds between batches or between messages with
+the default batch size. This can be used to limit the number of messages
+that are sent per second. Even a single thread can send a large number
+of messages very quickly, so this is often required. The default is none.
+
+*-tpm, --messages-per-minute*::
+The optional target for number of messages to send per minute. This enables
+a constant throughput regulator that runs once per minute. It checks the
+number of messages that have been sent and computes the average processing
+time. It uses that value to compute a sleep time between batches for the
+next iteration. In the beginning the adjustments can be large, but as the
+test progresses they are dampened. Hopefully the end result is throughput
+close to the desired target.
+
+NOTE: It is easier to meet the target with many threads. With one thread
+the difference between 1 ms sleep time and 2 ms sleep time can be very
+large. With ten threads the corresponding sleep times would be 10 ms
+and 20 ms, making it much easier to find a good value.
+
+*-delay-pct, --delayed-delivery-percentage*::
+The percentage (supporting decimals) of messages that should be delayed. That
+means that they should not be delivered immediately, but after a delay. This
+is an optional feature, but most platforms support it. It can be buggy, so
+if the application uses it make sure to test it.
+
+WARNING: This is a weak spot for ActiveMQ and it must always be tested as
+it is used under the hood by the redelivery plugin, which is used for handling
+retries on the broker side. Few installations are willing to do without
+redelivery. It can also affect performance quite a bit.
+
+*-delay-sec, --delayed-delivery-seconds*::
+The number of seconds to delay the delayed messages.
+
+*-ttl, --time-to-live-millis*::
+The time to live or message expiration in milliseconds, by default none.
+Messages that exceed their time to live should be discarded. If this will
+be used by the real application, be sure to test it and be sure to let some
+messages expire while the test is running! Surprisingly enough it can have
+a major effect on performance and not always a good one.
+
+*-nopersist, --non-persistent-delivery**:
+This enables non-persistent delivery mode, which is faster but there is
+absolutely no guarantee for message delivery. Expect lost messages. It never
+makes sense to use this with XA transactions and barely with normal
+transactions, but hey! It is fast.
+
+
+=== ActiveMQ options
+
+*-url, --jms-broker-url*::
+The ActiveMQ URL. This is required. Be sure to use the same URL as the
+application, as it has a significant effect! There are many options that can
+be set using the URL. For correctness tests a good start is a failover URL with
+a suitable network timeout and local redelivery disabled.
+
+*-user, --jms-user, --jms-broker-user*::
+The user to authenticate as if the broker is configured to use security.
+
+*-pw, --jms-password, --jms-broker-password*::
+The password to authenticate with if the broker is configured to use security.
+
+=== AQ options
+
+*-url, --aq-jdbc-url*::
+The Oracle JDBC URL for the database hosting AQ.
+
+*-user, --aq-jdbc-user*::
+The database user to connect as.
+
+*-pw, --aq-jdbc-password*::
+The password to authenticate with.
+
+*-pause, --flow-control-pause-at* (producer)::
+This option enables flow control and pauses the producer threads roughly at
+the specified backlog. That can be useful for long-running tests where it is
+hard to predict the load. The producer will check the queue depth at regular
+intervals and pull the brakes when it passes this value. This is normally
+not enabled.
+
+*-resume, --flow-control-resume-at* (producer)::
+The queue depth when the producer threads should be started again if they
+have been paused, by default zero.
+
+*-flowint, --flow-control-check-interval-seconds* (producer)::
+The time between flow control checks if enabled, by default 20 seconds.
+
+=== Qpid options
+
+*-uri, --jms-uri*::
+The AMQP URI for the Apache Qpid connection.
+
+=== RabbitMQ options
+
+*-uri, --jms-uri*::
+The AMQP URI for the RabbitMQ connection.
+
+*-user, --jms-user*::
+The user to authenticate as if the broker is configured to use security.
+
+*-pw, --jms-password*::
+The password to authenticate with if the broker is configured to use security.
+
+*-vhost, --jms-virtual-host*::
+The virtual host for RabbitMQ.
+
+*-host, --jms-host*::
+The host for RabbitMQ.
+
+*-port, --jms-port*::
+The port for RabbitMQ.
+
+*-ssl, --jms-use-ssl*::
+The flag to enable SSL/TLS.
+
+=== IBM WebSphere MQ options
+
+*-host, --jms-host*::
+The WebSphere MQ host.
+
+*-port, --jms-port*::
+The port for WebSphere MQ.
+
+*-user, --jms-user*::
+The user to authenticate as if the broker is configured to use security.
+
+*-pw, --jms-password*::
+The password to authenticate with if the broker is configured to use security.
+
+*-qm, --queue-manager*::
+The queue manager.
+
+*-ch, --channel*::
+The channel.
+
+=== Log analyzer options
+
+The log analyzer loads all the data into memory in a HSQLDB database. If it takes a
+long time or fails with out of memory, increase the heap size, for example with
+`-Xms8G -Xmx8G` to use 8G as the heap size. A typical invocation might be:
+
+[source,bash] 
+----
+java -Xms8G -Xmx8G -jar shaded-jars/LogAnalyzer.java logs
+----
+
+
+*-?, --help, --options*::
+Print the command line options for the tool.
+
+*-i, --interactive*::
+Run the analyzer in interactive mode, opening a SQL prompt. No report will be
+generated but manual SQL queries can be performed.
+
+*-url, --jdbc-url*::
+The HSQLDB JDBC URL for the database, by default `jdbc:hsqldb:mem:jmstoolsdb`
+for an in-memory database. Replace mem with file to save some memory at the
+expense of speed. It is possible to use an external database as well, see
+the HSQLDB documentation for details.
+
+*-user, --jdbc-user*::
+The database user, by default `sa`.
+
+*-pw, --jdbc-password*::
+The database user, by default blank.
+
+*-o, --output-file*::
+The name of the report file in non-interactive mode, by default `report.html`.
+
+*-t, --template-file*::
+The path to a custom Thymeleaf (https://www.thymeleaf.org) template for rendering
+the report. By default one of two built-in templates will be used. One is for full
+tests using the id option where published and consumed messages can be linked in
+order to measure flight time and determine if any messages were lost or delivered
+multiple times, the other is for simpler performance tests, for example
+with only a consumer running (getting the messages from a real application).
+
+Pull requests with custom templates are welcome! Please put them in
+`LogAnalyzer/user-templates`.
+
+*file, directory, file, directory ...*::
+Log files to import. When a directory is specified all the files in the directory
+are imported.

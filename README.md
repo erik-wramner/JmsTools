@@ -1,7 +1,7 @@
 # JmsTools
 
-This repository contains ready-to-use (almost) tools for benchmarking and testing
-different JMS providers.
+This repository contains ready-to-use tools for benchmarking and testing JMS
+providers and applications.
 
 ## Background
 
@@ -40,6 +40,8 @@ Some of the options:
 * Client-side producer flow control for AQ.
 * XA transactions (two-phase commits) where supported.
 * A log analyzer that helps make sense of the recorded test results.
+
+Please check the [manual](Docs/JmsTools-Manual.adoc).
 
 Feel free to submit pull requests, bug reports or to ask for other improvements.
 
