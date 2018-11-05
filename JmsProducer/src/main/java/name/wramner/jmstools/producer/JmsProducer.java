@@ -37,8 +37,8 @@ import name.wramner.jmstools.rm.XAJmsResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
 
 /**
- * A JMS producer creates a configurable number of threads and enqueues messages on a given destination. It can be used for
- * benchmarking and correctness tests. Concrete subclasses provide support for specific JMS providers.
+ * A JMS producer creates a configurable number of threads and enqueues messages on a given destination. It can be used
+ * for benchmarking and correctness tests. Concrete subclasses provide support for specific JMS providers.
  *
  * @author Erik Wramner
  * @param <T> The concrete configuration class.
@@ -52,17 +52,18 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
         MessageProvider messageProvider;
         try {
             messageProvider = config.createMessageProvider();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new UncheckedIOException("Failed to initialize message provider", e);
         }
         Counter counter = config.createMessageCounter();
         StopController stopController = config.createStopController(counter);
         ResourceManagerFactory resourceManagerFactory = config.useXa()
-                ? new XAJmsResourceManagerFactory(new UserTransactionManager(), config.createXAConnectionFactory(),
-                    config.getDestinationName(), config.isDestinationTypeQueue())
-                : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
-                    config.isDestinationTypeQueue(), !config.isNonTransactional());
+                        ? new XAJmsResourceManagerFactory(new UserTransactionManager(),
+                                        config.createXAConnectionFactory(), config.getDestinationName(),
+                                        config.isDestinationTypeQueue())
+                        : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
+                                        config.isDestinationTypeQueue(), !config.isNonTransactional(),
+                                        config.isNonPersistentDeliveryRequested());
         List<Thread> threads = createThreads(resourceManagerFactory, counter, stopController, messageProvider, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, counter), "StatisticsLogger"));
@@ -76,17 +77,19 @@ public abstract class JmsProducer<T extends JmsProducerConfiguration> extends Jm
     }
 
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter counter,
-            StopController stopController, MessageProvider messageProvider, T config) {
+                    StopController stopController, MessageProvider messageProvider, T config) {
         String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         File logDirectory = config.getLogDirectory();
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(
-                new EnqueueWorker<T>(resourceManagerFactory, counter, stopController, messageProvider,
-                    logDirectory != null ? new File(logDirectory,
-                        LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
-                    config),
-                "EnqueueWorker-" + (i + 1)));
+                            new EnqueueWorker<T>(resourceManagerFactory, counter, stopController, messageProvider,
+                                            logDirectory != null ? new File(logDirectory,
+                                                            LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString
+                                                                            + ".log")
+                                                            : null,
+                                            config),
+                            "EnqueueWorker-" + (i + 1)));
         }
         return threads;
     }

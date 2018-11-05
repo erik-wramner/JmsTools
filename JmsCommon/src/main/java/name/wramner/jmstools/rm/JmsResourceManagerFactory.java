@@ -27,6 +27,7 @@ public class JmsResourceManagerFactory implements ResourceManagerFactory {
     private final String _destinationName;
     private final boolean _destinationTypeQueue;
     private final boolean _transaction;
+    private final boolean _nonPersistent;
 
     /**
      * Constructor.
@@ -35,13 +36,15 @@ public class JmsResourceManagerFactory implements ResourceManagerFactory {
      * @param destinationName The destination name.
      * @param destinationTypeQueue The flag selecting queue or topic.
      * @param transaction The flag to use transactions.
+     * @param nonPersistent The flag to use non-persistent delivery.
      */
     public JmsResourceManagerFactory(ConnectionFactory connFactory, String destinationName,
-            boolean destinationTypeQueue, boolean transaction) {
+                    boolean destinationTypeQueue, boolean transaction, boolean nonPersistent) {
         _connFactory = connFactory;
         _destinationName = destinationName;
         _destinationTypeQueue = destinationTypeQueue;
         _transaction = transaction;
+        _nonPersistent = nonPersistent;
     }
 
     /**
@@ -49,6 +52,7 @@ public class JmsResourceManagerFactory implements ResourceManagerFactory {
      */
     @Override
     public ResourceManager createResourceManager() {
-        return new JmsResourceManager(_connFactory, _destinationName, _destinationTypeQueue, _transaction);
+        return new JmsResourceManager(_connFactory, _destinationName, _destinationTypeQueue, _transaction,
+                        _nonPersistent);
     }
 }

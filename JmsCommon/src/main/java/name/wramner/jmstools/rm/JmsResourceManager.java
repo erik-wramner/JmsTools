@@ -17,6 +17,7 @@ package name.wramner.jmstools.rm;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
@@ -30,6 +31,7 @@ import javax.jms.Session;
 public class JmsResourceManager extends ResourceManager {
     private final ConnectionFactory _connFactory;
     private final boolean _transaction;
+    private final boolean _nonPersistent;
     private Connection _conn;
     private Session _session;
 
@@ -40,12 +42,14 @@ public class JmsResourceManager extends ResourceManager {
      * @param queueName The queue name.
      * @param destinationTypeQueue The destination type flag.
      * @param transaction The flag to use transactions.
+     * @param nonPersistent The flag to use non-persistent delivery.
      */
     public JmsResourceManager(ConnectionFactory connFactory, String queueName, boolean destinationTypeQueue,
-                    boolean transaction) {
+                    boolean transaction, boolean nonPersistent) {
         super(queueName, destinationTypeQueue);
         _connFactory = connFactory;
         _transaction = transaction;
+        _nonPersistent = nonPersistent;
     }
 
     /**
@@ -54,7 +58,12 @@ public class JmsResourceManager extends ResourceManager {
     @Override
     protected MessageProducer createMessageProducer() throws JMSException {
         Session session = getSession();
-        return session.createProducer(getDestination(session, _destinationName, _destinationTypeQueue));
+        MessageProducer producer = session
+                        .createProducer(getDestination(session, _destinationName, _destinationTypeQueue));
+        if (_nonPersistent) {
+            producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+        }
+        return producer;
     }
 
     /**

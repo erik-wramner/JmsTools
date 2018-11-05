@@ -118,6 +118,20 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
     @Option(name = "-d", aliases = "--data", usage = "Message content (plain text)", forbids = { "-dir" })
     private String _data;
 
+    @Option(name = "-nopersist", aliases = "--non-persistent-delivery", usage = "Use non-persistent delivery. Fast, but expect lost messages.", forbids = {
+                    "-xa" })
+    private boolean _nonPersistentDelivery;
+
+
+    /**
+     * Should messages be sent with non-persistent delivery mode?
+     *
+     * @return true or false.
+     */
+    public boolean isNonPersistentDeliveryRequested() {
+        return _nonPersistentDelivery;
+    }
+
     /**
      * Get the message type.
      *

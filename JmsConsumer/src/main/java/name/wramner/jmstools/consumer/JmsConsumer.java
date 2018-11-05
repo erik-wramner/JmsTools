@@ -34,8 +34,8 @@ import name.wramner.jmstools.rm.XAJmsResourceManagerFactory;
 import name.wramner.jmstools.stopcontroller.StopController;
 
 /**
- * A JMS consumer creates a configurable number of threads and dequeues messages from a given destination. It can be used for
- * benchmarking and correctness tests. Concrete subclasses provide support for specific JMS providers.
+ * A JMS consumer creates a configurable number of threads and dequeues messages from a given destination. It can be
+ * used for benchmarking and correctness tests. Concrete subclasses provide support for specific JMS providers.
  *
  * @author Erik Wramner
  * @param <T> The concrete configuration class.
@@ -46,7 +46,7 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
 
     @Override
     protected boolean isConfigurationValid(T config) {
-        if(config.getReceiveTimeoutMillis() == 0 && config.getPollingDelayMillis() == 0) {
+        if (config.getReceiveTimeoutMillis() == 0 && config.getPollingDelayMillis() == 0) {
             System.out.println("Please specify a receive timeout or a polling delay!");
             return false;
         }
@@ -63,28 +63,31 @@ public abstract class JmsConsumer<T extends JmsConsumerConfiguration> extends Jm
                                         config.createXAConnectionFactory(), config.getDestinationName(),
                                         config.isDestinationTypeQueue())
                         : new JmsResourceManagerFactory(config.createConnectionFactory(), config.getDestinationName(),
-                                        config.isDestinationTypeQueue(), !config.isNonTransactional());
+                                        config.isDestinationTypeQueue(), !config.isNonTransactional(), false);
         List<Thread> threads = createThreads(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
-            stopController, config);
+                        stopController, config);
         if (config.isStatisticsEnabled()) {
             threads.add(new Thread(new StatisticsLogger(stopController, messageCounter, receiveTimeoutCounter),
-                "StatisticsLogger"));
+                            "StatisticsLogger"));
         }
         return threads;
     }
 
     private List<Thread> createThreads(ResourceManagerFactory resourceManagerFactory, Counter messageCounter,
-            Counter receiveTimeoutCounter, StopController stopController, T config) {
+                    Counter receiveTimeoutCounter, StopController stopController, T config) {
         String currentTimeString = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         File logDirectory = config.getLogDirectory();
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < config.getThreads(); i++) {
             threads.add(new Thread(
-                new DequeueWorker<T>(resourceManagerFactory, messageCounter, receiveTimeoutCounter, stopController,
-                    logDirectory != null ? new File(logDirectory,
-                        LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString + ".log") : null,
-                    config),
-                "DequeueWorker-" + (i + 1)));
+                            new DequeueWorker<T>(resourceManagerFactory, messageCounter, receiveTimeoutCounter,
+                                            stopController,
+                                            logDirectory != null ? new File(logDirectory,
+                                                            LOG_FILE_BASE_NAME + (i + 1) + "_" + currentTimeString
+                                                                            + ".log")
+                                                            : null,
+                                            config),
+                            "DequeueWorker-" + (i + 1)));
         }
         return threads;
     }
