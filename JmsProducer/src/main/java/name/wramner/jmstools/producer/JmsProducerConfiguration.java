@@ -176,6 +176,9 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
      * @return percentage or null for none.
      */
     public Double getDelayedDeliveryPercentage() {
+        if (_delayedDeliverySeconds > 0 && _delayedDeliveryPercentage == null) {
+            return Double.valueOf(100);
+        }
         return _delayedDeliveryPercentage;
     }
 
