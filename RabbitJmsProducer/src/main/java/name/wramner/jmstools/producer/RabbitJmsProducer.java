@@ -29,14 +29,14 @@ import name.wramner.jmstools.producer.RabbitJmsProducer.RabbitProducerConfigurat
 
 /**
  * Command line JMS Rabbit MQ message producer intended for benchmarks and other tests.
- * 
+ *
  * @author Erik Wramner
  */
 public class RabbitJmsProducer extends JmsProducer<RabbitProducerConfiguration> {
 
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command line.
      * @see AmqProducerConfiguration
      */
@@ -46,7 +46,7 @@ public class RabbitJmsProducer extends JmsProducer<RabbitProducerConfiguration> 
 
     /**
      * Create configuration specific to this client.
-     * 
+     *
      * @return configuration instance.
      * @see name.wramner.jmstools.producer.JmsProducer#createConfiguration()
      */
@@ -57,51 +57,63 @@ public class RabbitJmsProducer extends JmsProducer<RabbitProducerConfiguration> 
 
     /**
      * Rabbit MQ producer configuration. It extends the basic JMS producer configuration.
-     * 
+     *
      * @author Erik Wramner
      */
     public static class RabbitProducerConfiguration extends JmsProducerConfiguration {
-        @Option(name = "-uri", aliases = { "--jms-uri" }, usage = "AMQP URI for RabbitMQ connection")
+        @Option(name = "-uri", aliases = { "--jms-uri" }, usage = "AMQP URI for RabbitMQ connection", forbids = {
+                        "-ssl" })
         private String _uri;
 
-        @Option(name = "-user", aliases = { "--jms-user" }, usage = "User name if using authentication")
+        @Option(name = "-user", aliases = { "--jms-user" }, usage = "User name overriding default (guest) and URI")
         private String _userName;
 
-        @Option(name = "-pw", aliases = { "--jms-password" }, usage = "Password if using authentication", depends = {
-                        "-user" })
+        @Option(name = "-pw", aliases = {
+                        "--jms-password" }, usage = "Password overriding default (guest) and URI", depends = {
+                                        "-user" })
         private String _password;
 
-        @Option(name = "-vhost", aliases = { "--jms-virtual-host" }, usage = "Virtual host for Rabbit MQ")
+        @Option(name = "-vhost", aliases = {
+                        "--jms-virtual-host" }, usage = "Virtual host overriding default (/) and URI")
         private String _virtualHost = "/";
 
-        @Option(name = "-host", aliases = { "--jms-host" }, usage = "Host or IP address for Rabbit MQ")
+        @Option(name = "-host", aliases = { "--jms-host" }, usage = "Host overriding default (localhost) and URI")
         private String _host;
 
-        @Option(name = "-ssl", aliases = { "--jms-use-ssl" }, usage = "Enable/disable SSL for Rabbit MQ connection")
-        private boolean _ssl;
-
-        @Option(name = "-port", aliases = { "--jms-port" }, usage = "Port for Rabbit MQ")
+        @Option(name = "-port", aliases = { "--jms-port" }, usage = "Port overriding default and URI")
         private Integer _port;
+
+        @Option(name = "-ssl", aliases = { "--jms-use-ssl" }, usage = "Force SSL overriding default", forbids = {
+                        "-uri" })
+        private boolean _ssl;
 
         @Override
         public ConnectionFactory createConnectionFactory() throws JMSException {
             RMQConnectionFactory cf = new RMQConnectionFactory();
-            if (_host != null) {
-                cf.setHost(_host);
-                cf.setPort(_port != null ? _port.intValue() : (_ssl ? 5671 : 5672));
-                cf.setVirtualHost(_virtualHost);
-                cf.setUsername(_userName);
-                cf.setPassword(_password);
-                if (_ssl) {
-                    try {
-                        cf.useSslProtocol();
-                    } catch (NoSuchAlgorithmException e) {
-                        throw new JMSException("SSL not supported!");
-                    }
-                }
-            }
             if (_uri != null) {
                 cf.setUri(_uri);
+            }
+            if (_host != null) {
+                cf.setHost(_host);
+            }
+            if (_port != null) {
+                cf.setPort(_port.intValue());
+            }
+            if (_virtualHost != null) {
+                cf.setVirtualHost(_virtualHost);
+            }
+            if (_userName != null) {
+                cf.setUsername(_userName);
+            }
+            if (_password != null) {
+                cf.setPassword(_password);
+            }
+            if (_ssl) {
+                try {
+                    cf.useSslProtocol();
+                } catch (NoSuchAlgorithmException e) {
+                    throw new JMSException("SSL not supported!");
+                }
             }
             return cf;
         }

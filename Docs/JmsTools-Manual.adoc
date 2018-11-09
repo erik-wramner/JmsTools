@@ -622,25 +622,39 @@ The AMQP URI for the Apache Qpid connection.
 === RabbitMQ options
 
 *-uri, --jms-uri*::
-The AMQP URI for the RabbitMQ connection.
+The AMQP URI for the RabbitMQ connection. This is optional as the factory
+will use default values for everything. If provided it is used as a
+starting point which may be overridden by the other options, but it
+can specify all options on its own.
 
 *-user, --jms-user*::
-The user to authenticate as if the broker is configured to use security.
+The user to authenticate as. This is optional. If an URI is given the
+user will be taken from there, if not the default user guest is used.
+This option overrides both.
 
 *-pw, --jms-password*::
-The password to authenticate with if the broker is configured to use security.
+The password to authenticate with. This is optional. If an URI is given the
+password will be taken from there, if not the default password guest is used.
+This option overrides both.
 
 *-vhost, --jms-virtual-host*::
-The virtual host for RabbitMQ.
+The virtual host. This is optional. If an URI is given the virtual host will
+be taken from there, if not the default / is used.
 
 *-host, --jms-host*::
-The host for RabbitMQ.
+The host or IP address for RabbitMQ. This is optional. If an URI is given
+the host is taken from there, if not the default localhost is used.
 
 *-port, --jms-port*::
-The port for RabbitMQ.
+The port for RabbitMQ. This is optional. If an URI is given the port is
+either taken from there or based on the scheme with a different default
+port for SSL and non-SSL. If no URI is given the default port for SSL
+or no SSL will be used. This overrides both.
 
 *-ssl, --jms-use-ssl*::
-The flag to enable SSL/TLS.
+The flag to enable SSL/TLS. This cannot be used if an URI has been
+specified as that would be very confusing.
+
 
 === IBM WebSphere MQ options
 
