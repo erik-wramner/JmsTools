@@ -38,6 +38,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.impl.factory.primitive.IntLists;
@@ -47,6 +48,7 @@ import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
 import org.jfree.data.time.Minute;
+import org.jfree.data.time.Second;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 import org.kohsuke.args4j.Argument;
@@ -215,7 +217,7 @@ public class LogAnalyzer {
     }
 
     /**
-     * Metrics for a period (a minute).
+     * Metrics for a period.
      */
     public static class PeriodMetrics {
         private final Timestamp periodStart;
@@ -268,6 +270,14 @@ public class LogAnalyzer {
 
         public long getConsumedBytes() {
             return _consumedBytes;
+        }
+
+        public double getAverageProducedSize() {
+            return _producedCount > 0 ? ((double) _producedBytes) / _producedCount : 0;
+        }
+
+        public double getAverageConsumedSize() {
+            return _consumedCount > 0 ? ((double) _consumedBytes) / _consumedCount : 0;
         }
 
         public int getMaxProducedSize() {
@@ -504,6 +514,31 @@ public class LogAnalyzer {
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
         }
 
+        public String getBase64MessagesPerSecondImage() {
+            TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+            TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+            TimeSeries timeSeriesTotal = new TimeSeries("Total");
+            for (PeriodMetrics m : getMessagesPerSecond()) {
+                Second second = new Second(m.getPeriodStart());
+                timeSeriesConsumed.add(second, m.getConsumed());
+                timeSeriesProduced.add(second, m.getProduced());
+                timeSeriesTotal.add(second, m.getConsumed() + m.getProduced());
+            }
+            TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+            timeSeriesCollection.addSeries(timeSeriesProduced);
+            timeSeriesCollection.addSeries(timeSeriesTotal);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per second (TPS)", "Time", "Messages",
+                                timeSeriesCollection);
+                chart.getPlot().setBackgroundPaint(Color.WHITE);
+                ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+        }
+
         public String getBase64BytesPerMinuteImage() {
             TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
             TimeSeries timeSeriesProduced = new TimeSeries("Produced");
@@ -565,12 +600,22 @@ public class LogAnalyzer {
         }
 
         public List<PeriodMetrics> getMessagesPerMinute() {
-            // This is called multiple times but intentionally NOT cached as it takes too much memory
+            // This may be called multiple times but intentionally NOT cached as it takes too much memory
+            return getMessagesPerInterval(TimeUnit.MINUTES);
+        }
+
+        public List<PeriodMetrics> getMessagesPerSecond() {
+            // This may be called multiple times but intentionally NOT cached as it takes too much memory
+            return getMessagesPerInterval(TimeUnit.SECONDS);
+        }
+
+        public List<PeriodMetrics> getMessagesPerInterval(TimeUnit timeUnit) {
+            String view = translateTimeUnitToMessagesPerIntervalViewName(timeUnit);
             try (Statement stat = _conn.createStatement();
                  ResultSet rs = stat.executeQuery("select time_period, produced_count, consumed_count,"
                                  + " produced_bytes, consumed_bytes, produced_max_size, consumed_max_size,"
-                                 + " produced_median_size, consumed_median_size"
-                                 + " from messages_per_minute order by time_period")) {
+                                 + " produced_median_size, consumed_median_size from " + view
+                                 + " order by time_period")) {
                 List<PeriodMetrics> list = new ArrayList<>();
                 while (rs.next()) {
                     list.add(new PeriodMetrics(rs.getTimestamp("time_period"), rs.getInt("produced_count"),
@@ -582,6 +627,17 @@ public class LogAnalyzer {
                 return list;
             } catch (SQLException e) {
                 throw new UncheckedSqlException(e);
+            }
+        }
+
+        private String translateTimeUnitToMessagesPerIntervalViewName(TimeUnit timeUnit) {
+            switch (timeUnit) {
+            case MINUTES:
+                return "messages_per_minute";
+            case SECONDS:
+                return "messages_per_second";
+            default:
+                throw new IllegalArgumentException("Time unit " + timeUnit.name() + " not supported");
             }
         }
 

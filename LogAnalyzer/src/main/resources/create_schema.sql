@@ -91,6 +91,41 @@ create view if not exists messages_per_minute as
    from produced_per_minute p
    full outer join consumed_per_minute c on p.time_period = c.time_period;
          
+create view if not exists consumed_per_second as
+  select count(*) total_count, sum(payload_size) total_bytes,
+         max(payload_size) max_size,
+         avg(payload_size) average_size,
+         min(payload_size) min_size,
+         median(payload_size) median_size,
+         trunc(outcome_time, 'ss') time_period
+  from consumed_messages
+  where outcome = 'C'
+  group by trunc(outcome_time, 'ss');
+
+create view if not exists produced_per_second as
+  select count(*) total_count, sum(payload_size) total_bytes,
+         max(payload_size) max_size,
+         avg(payload_size) average_size,
+         min(payload_size) min_size,
+         median(payload_size) median_size,
+         trunc(outcome_time, 'ss') time_period
+  from produced_messages
+  where outcome = 'C'
+  group by trunc(outcome_time, 'ss');  
+
+create view if not exists messages_per_second as
+  select p.total_count produced_count,
+         c.total_count consumed_count,
+         p.total_bytes produced_bytes,
+         c.total_bytes consumed_bytes,
+         p.max_size produced_max_size,
+         c.max_size consumed_max_size,
+         p.median_size produced_median_size,
+         c.median_size consumed_median_size,
+         nvl(p.time_period, c.time_period) time_period
+   from produced_per_second p
+   full outer join consumed_per_second c on p.time_period = c.time_period;
+
 create view if not exists message_flight_time as
   select p.application_id, p.produced_time, c.consumed_time,
          datediff('millisecond', p.produced_time, c.consumed_time) flight_time_millis

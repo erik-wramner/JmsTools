@@ -191,6 +191,7 @@ caption {
             <tr>
                 <th rowspan="2">Period</th>
                 <th rowspan="2" align="right">Total #</th>
+                <th rowspan="2" align="right">TPS</th>
                 <th rowspan="2" align="right">Total bytes</th>
                 <th colspan="4">Produced</th>
                 <th colspan="4">Consumed</th>
@@ -210,6 +211,7 @@ caption {
             <tr th:each="m : ${dataProvider.messagesPerMinute}">
                 <td th:text="${m.periodStart}">2018-12-01 16:00</td>
                 <td th:text="${m.total}" align="right">10000</td>
+                <td th:text="${#numbers.formatDecimal(m.total / 60.0, 1, 1)}" align="right">3.2</td>
                 <td th:text="${m.totalBytes}" align="right">100000</td>
                 <td th:text="${m.produced}" align="right">8000</td>
                 <td th:text="${m.producedBytes}" align="right">8000</td>
@@ -225,6 +227,8 @@ caption {
     <img th:src="${dataProvider.base64MessagesPerMinuteImage}">
     <br>
     <img th:src="${dataProvider.base64BytesPerMinuteImage}">
+    <br>
+    <img th:src="${dataProvider.base64MessagesPerSecondImage}">
 
     <h3>Flight time</h3>
     <div th:if="${dataProvider.flightTimeDataAvailable}" th:remove="tag">
