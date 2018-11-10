@@ -382,12 +382,41 @@ public class LogAnalyzer {
             _rolledBackConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = 'R'");
         }
 
+        public int getTestDurationMinutes() {
+            return (int) TimeUnit.MINUTES.convert(getEndTime().getTime() - getStartTime().getTime(),
+                            TimeUnit.MILLISECONDS);
+        }
+
         public Timestamp getStartTime() {
             return _startTime;
         }
 
         public Timestamp getEndTime() {
             return _endTime;
+        }
+
+        public long getMinProducedMessageSize() {
+            return findWithLongResult("select min(payload_size) from produced_messages");
+        }
+
+        public long getMaxProducedMessageSize() {
+            return findWithLongResult("select max(payload_size) from produced_messages");
+        }
+
+        public long getAverageProducedMessageSize() {
+            return findWithLongResult("select avg(payload_size) from produced_messages");
+        }
+
+        public long getMinConsumedMessageSize() {
+            return findWithLongResult("select min(payload_size) from consumed_messages");
+        }
+
+        public long getMaxConsumedMessageSize() {
+            return findWithLongResult("select max(payload_size) from consumed_messages");
+        }
+
+        public long getAverageConsumedMessageSize() {
+            return findWithLongResult("select avg(payload_size) from consumed_messages");
         }
 
         public long getCommittedProducedBytes() {
