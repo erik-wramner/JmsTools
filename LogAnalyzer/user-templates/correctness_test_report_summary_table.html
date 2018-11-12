@@ -48,98 +48,122 @@ caption {
             <table>
                 <tbody>
                     <tr>
-                        <th width="200">Test started</th>
+                        <th width="220">Test started</th>
                         <td th:text="${#dates.format(dataProvider.startTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 10:00:00</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Test finished</th>
-                        <td th:text="${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 12:00:00</td>
+                        <th width="220">Test finished</th>
+                        <td th:text="${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 11:00:00</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Produced with roll-back</th>
+                        <th width="220">Test duration</th>
+                        <td th:text="${dataProvider.TestDurationMinutes}" align="center" width="150">60</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Produced with roll-back</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.producedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Consumed with roll-back</th>
+                        <th width="220">Consumed with roll-back</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.consumedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                    <th width="200">Rolled-back produced</th>
+                    <th width="220">Rolled-back produced</th>
                     <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                 </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Rolled-back consumed</th>
+                        <th width="220">Rolled-back consumed</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Produced</th>
+                        <th width="220">Produced</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Consumed</th>
+                        <th width="220">Consumed</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Difference</th>
+                        <th width="220">Difference</th>
                         <td th:text="${#numbers.formatDecimal((dataProvider.committedProducedCount-dataProvider.committedConsumedCount), 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Produced bytes</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="200">Consumed bytes</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="200">Lost messages</th>
+                        <th width="220">Lost messages</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.lostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Duplicate messages</th>
+                        <th width="220">Duplicate messages</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.duplicateMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Ghost</th>
+                        <th width="220">Ghost</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.ghostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Alien messages</th>
+                        <th width="220">Alien messages</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.alienMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
                     </tr>
                 </tbody>
                 <tbody>
                     <tr>
-                        <th width="200">Undead messages</th>
+                        <th width="220">Undead messages</th>
                         <td th:text="${#numbers.formatDecimal(dataProvider.undeadMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Produced bytes</th>
+                        <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Consumed bytes</th>
+                        <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Max Produced Message Size</th>
+                        <td th:text="${#numbers.formatDecimal(dataProvider.MaxProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Average Produced Message Size</th>
+                        <td th:text="${#numbers.formatDecimal(dataProvider.AverageProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">5000</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr>
+                        <th width="220">Min Produced Message Size</th>
+                        <td th:text="${#numbers.formatDecimal(dataProvider.MinProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">2000</td>
                     </tr>
                 </tbody>
             </table>
@@ -299,6 +323,7 @@ caption {
             <tr>
                 <th rowspan="2">Period</th>
                 <th rowspan="2" align="right">Total #</th>
+                <th rowspan="2" align="right">TPS</th>
                 <th rowspan="2" align="right">Total bytes</th>
                 <th colspan="4">Produced</th>
                 <th colspan="4">Consumed</th>
@@ -318,6 +343,7 @@ caption {
             <tr th:each="m : ${dataProvider.messagesPerMinute}">
                 <td th:text="${m.periodStart}">2018-12-01 16:00</td>
                 <td th:text="${m.total}" align="right">10000</td>
+                <td th:text="${#numbers.formatDecimal(m.total / 60.0, 1, 1)}" align="right">3.2</td>
                 <td th:text="${m.totalBytes}" align="right">100000</td>
                 <td th:text="${m.produced}" align="right">8000</td>
                 <td th:text="${m.producedBytes}" align="right">8000</td>
@@ -333,6 +359,8 @@ caption {
     <img th:src="${dataProvider.base64MessagesPerMinuteImage}">
     <br>
     <img th:src="${dataProvider.base64BytesPerMinuteImage}">
+    <br>
+    <img th:src="${dataProvider.base64MessagesPerSecondImage}">
 
     <h3>Flight time</h3>
     <div th:if="${dataProvider.flightTimeDataAvailable}" th:remove="tag">
