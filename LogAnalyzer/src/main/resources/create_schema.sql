@@ -7,6 +7,8 @@ create table if not exists consumed_messages (
   payload_size   integer null
 );
 
+alter table consumed_messages add constraint cm_chk_outcome check (outcome in ('C', 'R', '?'));
+
 create index if not exists ix_cm_app_id on consumed_messages (application_id);
 create index if not exists ix_cm_outcome_time on consumed_messages (outcome_time);
 create index if not exists ix_cm_consumed_time on consumed_messages (consumed_time);
@@ -21,6 +23,8 @@ create table if not exists produced_messages (
   delay_seconds  integer not null,
   constraint pk_produced_messages primary key (jms_id)
 );
+
+alter table produced_messages add constraint pm_chk_outcome check (outcome in ('C', 'R', '?'));
 
 create index if not exists ix_pm_app_id on produced_messages (application_id);
 create index if not exists ix_pm_outcome_time on produced_messages (outcome_time);
@@ -47,7 +51,7 @@ create view if not exists lost_messages as
       and pm.application_id is not null
       and not exists (select * from consumed_messages cm
       where cm.application_id = pm.application_id
-        and cm.outcome = 'C');
+        and cm.outcome in ('C', '?'));
 
 create view if not exists duplicate_messages as
   select count(*) duplicates, application_id from consumed_messages
