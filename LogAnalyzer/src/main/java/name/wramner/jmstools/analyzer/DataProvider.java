@@ -56,6 +56,8 @@ public class DataProvider {
     private final int _delayedMessageCount;
     private final int _rolledBackProducedCount;
     private final int _rolledBackConsumedCount;
+    private final int _inDoubtProducedCount;
+    private final int _inDoubtConsumedCount;
     private List<FlightTimeMetrics> _flightTimeMetrics;
 
     /**
@@ -77,34 +79,253 @@ public class DataProvider {
         _delayedMessageCount = findWithIntResult("select count(*) from produced_messages where delay_seconds > 0");
         _rolledBackProducedCount = findWithIntResult("select count(*) from produced_messages where outcome = 'R'");
         _rolledBackConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = 'R'");
+        _inDoubtProducedCount = findWithIntResult("select count(*) from produced_messages where outcome = '?'");
+        _inDoubtConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = '?'");
     }
 
     /**
-     * Get test duration in minutes rounding up. A test that has been running for 1 minute an 59 seconds will be
-     * reported as 2 minutes.
+     * Get the number of alien messages, meaning messages without the id property set by the JmsTools producer for
+     * correctness tests.
      *
-     * @return duration in minutes.
+     * @return total alien message count.
      */
-    public int getTestDurationMinutes() {
-        return (getTestDurationSeconds() + 59) / 60;
+    public int getAlienMessageCount() {
+        return _alienMessageCount;
     }
 
     /**
-     * Get test duration in seconds rounded up to the closest second like ceil.
+     * Get a list of alien messages, meaning messages without the id property set by the JmsTools producer for
+     * correctness tests.
      *
-     * @return duration in seconds.
+     * @return list with alien messages.
      */
-    public int getTestDurationSeconds() {
-        return (int) ((getEndTime().getTime() - getStartTime().getTime() + 999L) / 1000L);
+    public List<ConsumedMessage> getAlienMessages() {
+        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                        + " from alien_messages order by jms_id");
     }
 
     /**
-     * Get time for first produced or consumed message.
+     * Get the average size of the consumed messages in bytes.
      *
-     * @return start time.
+     * @return size.
      */
-    public Timestamp getStartTime() {
-        return _startTime;
+    public long getAverageConsumedMessageSize() {
+        return findWithLongResult("select avg(payload_size) from consumed_messages");
+    }
+
+    /**
+     * Get the average size of the produced messages in bytes.
+     *
+     * @return size.
+     */
+    public long getAverageProducedMessageSize() {
+        return findWithLongResult("select avg(payload_size) from produced_messages");
+    }
+
+    /**
+     * Get a base64-encoded image for inclusion in an img tag with a chart with kilobytes per minute produced and
+     * consumed.
+     *
+     * @return chart as base64 string.
+     */
+    public String getBase64BytesPerMinuteImage() {
+        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+        TimeSeries timeSeriesTotal = new TimeSeries("Total");
+        for (PeriodMetrics m : getMessagesPerMinute()) {
+            Minute minute = new Minute(m.getPeriodStart());
+            timeSeriesConsumed.add(minute, m.getConsumedBytes() / 1024);
+            timeSeriesProduced.add(minute, m.getProducedBytes() / 1024);
+            timeSeriesTotal.add(minute, m.getTotalBytes() / 1024);
+        }
+        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+        timeSeriesCollection.addSeries(timeSeriesProduced);
+        timeSeriesCollection.addSeries(timeSeriesTotal);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try {
+            JFreeChart chart = ChartFactory.createTimeSeriesChart("Kilobytes per minute", "Time", "Bytes (k)",
+                            timeSeriesCollection);
+            chart.getPlot().setBackgroundPaint(Color.WHITE);
+            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    }
+
+    /**
+     * Get a base64-encoded image for inclusion in an img tag with a chart with message flight times.
+     *
+     * @return chart as base64 string.
+     */
+    public String getBase64EncodedFlightTimeMetricsImage() {
+        TimeSeries timeSeries50p = new TimeSeries("Median");
+        TimeSeries timeSeries95p = new TimeSeries("95 percentile");
+        TimeSeries timeSeriesMax = new TimeSeries("Max");
+        for (FlightTimeMetrics m : getFlightTimeMetrics()) {
+            Minute minute = new Minute(m.getPeriod());
+            timeSeries50p.add(minute, m.getMedian());
+            timeSeries95p.add(minute, m.getPercentile95());
+            timeSeriesMax.add(minute, m.getMax());
+        }
+        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries50p);
+        timeSeriesCollection.addSeries(timeSeries95p);
+        timeSeriesCollection.addSeries(timeSeriesMax);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try {
+            JFreeChart chart = ChartFactory.createTimeSeriesChart("Flight time", "Time", "ms", timeSeriesCollection);
+            chart.getPlot().setBackgroundPaint(Color.WHITE);
+            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    }
+
+    /**
+     * Get a base64-encoded image for inclusion in an img tag with a chart with number of produced and consumed messages
+     * per minute.
+     *
+     * @return chart as base64 string.
+     */
+    public String getBase64MessagesPerMinuteImage() {
+        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+        TimeSeries timeSeriesTotal = new TimeSeries("Total");
+        for (PeriodMetrics m : getMessagesPerMinute()) {
+            Minute minute = new Minute(m.getPeriodStart());
+            timeSeriesConsumed.add(minute, m.getConsumed());
+            timeSeriesProduced.add(minute, m.getProduced());
+            timeSeriesTotal.add(minute, m.getConsumed() + m.getProduced());
+        }
+        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+        timeSeriesCollection.addSeries(timeSeriesProduced);
+        timeSeriesCollection.addSeries(timeSeriesTotal);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try {
+            JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per minute", "Time", "Messages",
+                            timeSeriesCollection);
+            chart.getPlot().setBackgroundPaint(Color.WHITE);
+            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    }
+
+    /**
+     * Get a base64-encoded image for inclusion in an img tag with a chart with number of produced and consumed messages
+     * per second.
+     *
+     * @return chart as base64 string.
+     */
+    public String getBase64MessagesPerSecondImage() {
+        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
+        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
+        TimeSeries timeSeriesTotal = new TimeSeries("Total");
+        for (PeriodMetrics m : getMessagesPerSecond()) {
+            Second second = new Second(m.getPeriodStart());
+            timeSeriesConsumed.add(second, m.getConsumed());
+            timeSeriesProduced.add(second, m.getProduced());
+            timeSeriesTotal.add(second, m.getConsumed() + m.getProduced());
+        }
+        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
+        timeSeriesCollection.addSeries(timeSeriesProduced);
+        timeSeriesCollection.addSeries(timeSeriesTotal);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try {
+            JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per second (TPS)", "Time", "Messages",
+                            timeSeriesCollection);
+            chart.getPlot().setBackgroundPaint(Color.WHITE);
+            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    }
+
+    /**
+     * Get the sum of the size in bytes of all committed consumed messages.
+     *
+     * @return sum of consumed message sizes.
+     */
+    public long getCommittedConsumedBytes() {
+        return findWithLongResult("select sum(payload_size) from consumed_messages where outcome = 'C'");
+    }
+
+    /**
+     * Get the total number of committed consumed messages.
+     *
+     * @return count.
+     */
+    public int getCommittedConsumedCount() {
+        return getConsumedMessageCount() - getRolledBackConsumedCount() - getInDoubtConsumedCount();
+    }
+
+    /**
+     * Get the sum of the size in bytes of all committed produced messages.
+     *
+     * @return sum of produced message sizes.
+     */
+    public long getCommittedProducedBytes() {
+        return findWithLongResult("select sum(payload_size) from produced_messages where outcome = 'C'");
+    }
+
+    /**
+     * Get the total number of committed produced messages.
+     *
+     * @return count.
+     */
+    public int getCommittedProducedCount() {
+        return getProducedMessageCount() - getRolledBackProducedCount() - getInDoubtProducedCount();
+    }
+
+    /**
+     * Get the total number of consumed messages including rolled back and in-doubt messages.
+     *
+     * @return count.
+     */
+    public int getConsumedMessageCount() {
+        return _consumedMessageCount;
+    }
+
+    /**
+     * Get the total number of delayed messages, i.e. messages that should not be delivered immediately but later.
+     *
+     * @return count.
+     */
+    public int getDelayedMessageCount() {
+        return _delayedMessageCount;
+    }
+
+    /**
+     * Get the percentage of delayed messages, i.e. messages that were sent with delayed delivery.
+     *
+     * @return percentage.
+     */
+    public double getDelayedMessagePercentage() {
+        return getProducedMessageCount() > 0 ? (100.0 * getDelayedMessageCount()) / getProducedMessageCount() : 0;
+    }
+
+    /**
+     * Get the total number of duplicate messages identified.
+     *
+     * @return count.
+     */
+    public int getDuplicateMessageCount() {
+        return _duplicateMessageCount;
+    }
+
+    /**
+     * Get list with all duplicate messages.
+     *
+     * @return duplicate messages.
+     */
+    public List<ConsumedMessage> getDuplicateMessages() {
+        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                        + " from consumed_messages c"
+                        + " where exists (select * from duplicate_messages d where d.application_id = c.application_id)"
+                        + " order by application_id, jms_id");
     }
 
     /**
@@ -116,98 +337,11 @@ public class DataProvider {
         return _endTime;
     }
 
-    public long getMinProducedMessageSize() {
-        return findWithLongResult("select min(payload_size) from produced_messages");
-    }
-
-    public long getMaxProducedMessageSize() {
-        return findWithLongResult("select max(payload_size) from produced_messages");
-    }
-
-    public long getAverageProducedMessageSize() {
-        return findWithLongResult("select avg(payload_size) from produced_messages");
-    }
-
-    public long getMinConsumedMessageSize() {
-        return findWithLongResult("select min(payload_size) from consumed_messages");
-    }
-
-    public long getMaxConsumedMessageSize() {
-        return findWithLongResult("select max(payload_size) from consumed_messages");
-    }
-
-    public long getAverageConsumedMessageSize() {
-        return findWithLongResult("select avg(payload_size) from consumed_messages");
-    }
-
-    public long getCommittedProducedBytes() {
-        return findWithLongResult("select sum(payload_size) from produced_messages where outcome = 'C'");
-    }
-
-    public long getCommittedConsumedBytes() {
-        return findWithLongResult("select sum(payload_size) from consumed_messages where outcome = 'C'");
-    }
-
-    public int getRolledBackProducedCount() {
-        return _rolledBackProducedCount;
-    }
-
-    public int getRolledBackConsumedCount() {
-        return _rolledBackConsumedCount;
-    }
-
-    public int getCommittedProducedCount() {
-        return getProducedMessageCount() - getRolledBackProducedCount();
-    }
-
-    public int getCommittedConsumedCount() {
-        return getConsumedMessageCount() - getRolledBackConsumedCount();
-    }
-
-    public int getTotalMessageCount() {
-        return getConsumedMessageCount() + getProducedMessageCount();
-    }
-
-    public int getConsumedMessageCount() {
-        return _consumedMessageCount;
-    }
-
-    public int getProducedMessageCount() {
-        return _producedMessageCount;
-    }
-
-    public int getLostMessageCount() {
-        return _lostMessageCount;
-    }
-
-    public int getDuplicateMessageCount() {
-        return _duplicateMessageCount;
-    }
-
-    public int getGhostMessageCount() {
-        return _ghostMessageCount;
-    }
-
-    public int getAlienMessageCount() {
-        return _alienMessageCount;
-    }
-
-    public int getUndeadMessageCount() {
-        return _undeadMessageCount;
-    }
-
-    public int getDelayedMessageCount() {
-        return _delayedMessageCount;
-    }
-
-    public double getDelayedMessagePercentage() {
-        return getProducedMessageCount() > 0 ? (100.0 * getDelayedMessageCount()) / getProducedMessageCount() : 0;
-    }
-
-    public boolean isFlightTimeDataAvailable() {
-        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0 && isCorrectnessTest();
-    }
-
+    /**
+     * Get list with flight time metrics per minute.
+     *
+     * @return list with flight time metrics.
+     */
     public List<FlightTimeMetrics> getFlightTimeMetrics() {
         if (_flightTimeMetrics != null) {
             return _flightTimeMetrics;
@@ -239,103 +373,229 @@ public class DataProvider {
         }
     }
 
-    public String getBase64MessagesPerMinuteImage() {
-        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
-        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
-        TimeSeries timeSeriesTotal = new TimeSeries("Total");
-        for (PeriodMetrics m : getMessagesPerMinute()) {
-            Minute minute = new Minute(m.getPeriodStart());
-            timeSeriesConsumed.add(minute, m.getConsumed());
-            timeSeriesProduced.add(minute, m.getProduced());
-            timeSeriesTotal.add(minute, m.getConsumed() + m.getProduced());
-        }
-        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
-        timeSeriesCollection.addSeries(timeSeriesProduced);
-        timeSeriesCollection.addSeries(timeSeriesTotal);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try {
-            JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per minute", "Time", "Messages",
-                            timeSeriesCollection);
-            chart.getPlot().setBackgroundPaint(Color.WHITE);
-            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    /**
+     * Get the number of ghost messages, i.e. the number of messages that were delivered even though the sender rolled
+     * them back.
+     *
+     * @return count.
+     */
+    public int getGhostMessageCount() {
+        return _ghostMessageCount;
     }
 
-    public String getBase64MessagesPerSecondImage() {
-        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
-        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
-        TimeSeries timeSeriesTotal = new TimeSeries("Total");
-        for (PeriodMetrics m : getMessagesPerSecond()) {
-            Second second = new Second(m.getPeriodStart());
-            timeSeriesConsumed.add(second, m.getConsumed());
-            timeSeriesProduced.add(second, m.getProduced());
-            timeSeriesTotal.add(second, m.getConsumed() + m.getProduced());
-        }
-        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
-        timeSeriesCollection.addSeries(timeSeriesProduced);
-        timeSeriesCollection.addSeries(timeSeriesTotal);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try {
-            JFreeChart chart = ChartFactory.createTimeSeriesChart("Messages per second (TPS)", "Time", "Messages",
-                            timeSeriesCollection);
-            chart.getPlot().setBackgroundPaint(Color.WHITE);
-            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    /**
+     * Get list with all ghost messages, i.e. the ones that were delivered even though the sender rolled them back.
+     *
+     * @return list with messages.
+     */
+    public List<ConsumedMessage> getGhostMessages() {
+        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                        + " from ghost_messages order by jms_id");
     }
 
-    public String getBase64BytesPerMinuteImage() {
-        TimeSeries timeSeriesConsumed = new TimeSeries("Consumed");
-        TimeSeries timeSeriesProduced = new TimeSeries("Produced");
-        TimeSeries timeSeriesTotal = new TimeSeries("Total");
-        for (PeriodMetrics m : getMessagesPerMinute()) {
-            Minute minute = new Minute(m.getPeriodStart());
-            timeSeriesConsumed.add(minute, m.getConsumedBytes() / 1024);
-            timeSeriesProduced.add(minute, m.getProducedBytes() / 1024);
-            timeSeriesTotal.add(minute, m.getTotalBytes() / 1024);
-        }
-        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeriesConsumed);
-        timeSeriesCollection.addSeries(timeSeriesProduced);
-        timeSeriesCollection.addSeries(timeSeriesTotal);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try {
-            JFreeChart chart = ChartFactory.createTimeSeriesChart("Kilobytes per minute", "Time", "Bytes (k)",
-                            timeSeriesCollection);
-            chart.getPlot().setBackgroundPaint(Color.WHITE);
-            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    /**
+     * Get the total number of consumed messages that are in doubt, meaning that they may have been committed or rolled
+     * back or possibly stuck in pending state for a two phase commit (not known).
+     *
+     * @return consumed messages in doubt.
+     */
+    public int getInDoubtConsumedCount() {
+        return _inDoubtConsumedCount;
     }
 
-    public String getBase64EncodedFlightTimeMetricsImage() {
-        TimeSeries timeSeries50p = new TimeSeries("Median");
-        TimeSeries timeSeries95p = new TimeSeries("95 percentile");
-        TimeSeries timeSeriesMax = new TimeSeries("Max");
-        for (FlightTimeMetrics m : getFlightTimeMetrics()) {
-            Minute minute = new Minute(m.getPeriod());
-            timeSeries50p.add(minute, m.getMedian());
-            timeSeries95p.add(minute, m.getPercentile95());
-            timeSeriesMax.add(minute, m.getMax());
-        }
-        TimeSeriesCollection timeSeriesCollection = new TimeSeriesCollection(timeSeries50p);
-        timeSeriesCollection.addSeries(timeSeries95p);
-        timeSeriesCollection.addSeries(timeSeriesMax);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try {
-            JFreeChart chart = ChartFactory.createTimeSeriesChart("Flight time", "Time", "ms", timeSeriesCollection);
-            chart.getPlot().setBackgroundPaint(Color.WHITE);
-            ChartUtilities.writeChartAsPNG(bos, chart, 1024, 500);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bos.toByteArray());
+    /**
+     * Get the total number of produced messages that are in doubt, meaning that they may have been committed or rolled
+     * back or possibly stuck in pending state for a two phase commit (not known).
+     *
+     * @return produced messages in doubt.
+     */
+    public int getInDoubtProducedCount() {
+        return _inDoubtProducedCount;
+    }
+
+    /**
+     * Get the total number of lost messages.
+     *
+     * @return count.
+     */
+    public int getLostMessageCount() {
+        return _lostMessageCount;
+    }
+
+    /**
+     * Get a list with all lost messages.
+     *
+     * @return list with messages.
+     */
+    public List<ProducedMessage> getLostMessages() {
+        return findProducedMessages("select jms_id, application_id, payload_size, produced_time, delay_seconds"
+                        + " from lost_messages order by jms_id");
+    }
+
+    /**
+     * Get the size of the largest consumed message in bytes.
+     *
+     * @return size.
+     */
+    public long getMaxConsumedMessageSize() {
+        return findWithLongResult("select max(payload_size) from consumed_messages");
+    }
+
+    /**
+     * Get the size of the largest produced message in bytes.
+     *
+     * @return size.
+     */
+    public long getMaxProducedMessageSize() {
+        return findWithLongResult("select max(payload_size) from produced_messages");
+    }
+
+    /**
+     * Get a list with period metrics per minute.
+     *
+     * @return list with metrics with minute resolution.
+     */
+    public List<PeriodMetrics> getMessagesPerMinute() {
+        // This may be called multiple times but intentionally NOT cached as it takes too much memory
+        return getMessagesPerInterval(TimeUnit.MINUTES);
+    }
+
+    /**
+     * Get a list with period metrics per second.
+     *
+     * @return list with metrics with second resolution.
+     */
+    public List<PeriodMetrics> getMessagesPerSecond() {
+        // This may be called multiple times but intentionally NOT cached as it takes too much memory
+        return getMessagesPerInterval(TimeUnit.SECONDS);
+    }
+
+    /**
+     * Get the size of the smallest consumed message in bytes.
+     *
+     * @return size.
+     */
+    public long getMinConsumedMessageSize() {
+        return findWithLongResult("select min(payload_size) from consumed_messages");
+    }
+
+    /**
+     * Get the size of the smallest produced message in bytes.
+     *
+     * @return size.
+     */
+    public long getMinProducedMessageSize() {
+        return findWithLongResult("select min(payload_size) from produced_messages");
+    }
+
+    /**
+     * Get the total number of produced messages including rolled back and in-doubt messages.
+     *
+     * @return count.
+     */
+    public int getProducedMessageCount() {
+        return _producedMessageCount;
+    }
+
+    /**
+     * Get the number of consumed messages that were rolled back intentionally or due to errors.
+     *
+     * @return count.
+     */
+    public int getRolledBackConsumedCount() {
+        return _rolledBackConsumedCount;
+    }
+
+    /**
+     * Get the number of produced messages that were rolled back intentionally or due to errors.
+     *
+     * @return count.
+     */
+    public int getRolledBackProducedCount() {
+        return _rolledBackProducedCount;
+    }
+
+    /**
+     * Get time for first produced or consumed message.
+     *
+     * @return start time.
+     */
+    public Timestamp getStartTime() {
+        return _startTime;
+    }
+
+    /**
+     * Get test duration in minutes rounding up. A test that has been running for 1 minute an 59 seconds will be
+     * reported as 2 minutes.
+     *
+     * @return duration in minutes.
+     */
+    public int getTestDurationMinutes() {
+        return (getTestDurationSeconds() + 59) / 60;
+    }
+
+    /**
+     * Get test duration in seconds rounded up to the closest second like ceil.
+     *
+     * @return duration in seconds.
+     */
+    public int getTestDurationSeconds() {
+        return (int) ((getEndTime().getTime() - getStartTime().getTime() + 999L) / 1000L);
+    }
+
+    /**
+     * Get the total number of consumed and produced messages.
+     *
+     * @return count.
+     */
+    public int getTotalMessageCount() {
+        return getConsumedMessageCount() + getProducedMessageCount();
+    }
+
+    /**
+     * Get the number of undead messages. An undead message is one that has the identifying headers used by JmsTools,
+     * but that has not been recorded as sent. The most likely explanation is that a message from an other test was
+     * received or that only consumer logs were imported. Another possibility is that a producer was killed before
+     * managing to record the sent message.
+     *
+     * @return count.
+     */
+    public int getUndeadMessageCount() {
+        return _undeadMessageCount;
+    }
+
+    /**
+     * Get a list with all undead messages. An undead message is one that has the identifying headers used by JmsTools,
+     * but that has not been recorded as sent. The most likely explanation is that a message from an other test was
+     * received or that only consumer logs were imported. Another possibility is that a producer was killed before
+     * managing to record the sent message.
+     *
+     * @return list with messages.
+     */
+    public List<ConsumedMessage> getUndeadMessages() {
+        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                        + " from undead_messages order by jms_id");
+    }
+
+    /**
+     * Check if this is (or may be) a correctness test where the id header is present. Without the id header it is
+     * impossible to connect produced and consumed messages.
+     *
+     * @return true if id is present in database, false otherwise.
+     */
+    public boolean isCorrectnessTest() {
+        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0
+                        && findExists("select application_id from produced_messages where application_id is not null");
+    }
+
+    /**
+     * Check if it makes sense to show flight times. Produced and consumed messages with the unique id header must be
+     * present for that.
+     *
+     * @return true if flight times are available.
+     */
+    public boolean isFlightTimeDataAvailable() {
+        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0 && isCorrectnessTest();
     }
 
     private FlightTimeMetrics computeFlightTimeMetrics(Timestamp time, MutableIntList flightTimes) {
@@ -348,17 +608,93 @@ public class DataProvider {
                         flightTimes.get(percentile95Index));
     }
 
-    public List<PeriodMetrics> getMessagesPerMinute() {
-        // This may be called multiple times but intentionally NOT cached as it takes too much memory
-        return getMessagesPerInterval(TimeUnit.MINUTES);
+    private List<ConsumedMessage> findConsumedMessages(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            List<ConsumedMessage> list = new ArrayList<>();
+            while (rs.next()) {
+                list.add(new ConsumedMessage(rs.getString("jms_id"), rs.getString("application_id"),
+                                rs.getInt("payload_size"), rs.getTimestamp("consumed_time")));
+            }
+            return list;
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
     }
 
-    public List<PeriodMetrics> getMessagesPerSecond() {
-        // This may be called multiple times but intentionally NOT cached as it takes too much memory
-        return getMessagesPerInterval(TimeUnit.SECONDS);
+    private Timestamp findEndTime() {
+        return findWithTimestampResult("select max(ts) from (" //
+                        + "select max(produced_time) ts from produced_messages" //
+                        + " union all " //
+                        + "select max(consumed_time) ts from consumed_messages)");
     }
 
-    public List<PeriodMetrics> getMessagesPerInterval(TimeUnit timeUnit) {
+    private boolean findExists(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            return rs.next();
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
+    }
+
+    private List<ProducedMessage> findProducedMessages(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            List<ProducedMessage> list = new ArrayList<>();
+            while (rs.next()) {
+                list.add(new ProducedMessage(rs.getString("jms_id"), rs.getString("application_id"),
+                                (Integer) rs.getObject("payload_size"), rs.getTimestamp("produced_time"),
+                                rs.getInt("delay_seconds")));
+            }
+            return list;
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
+    }
+
+    private int findSimpleCount(String table) {
+        return findWithIntResult("select count(*) from " + table);
+    }
+
+    private Timestamp findStartTime() {
+        return findWithTimestampResult("select min(ts) from (" //
+                        + "select min(produced_time) ts from produced_messages" //
+                        + " union all " //
+                        + "select min(consumed_time) ts from consumed_messages)");
+    }
+
+    private int findWithIntResult(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+            return 0;
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
+    }
+
+    private long findWithLongResult(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0;
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
+    }
+
+    private Timestamp findWithTimestampResult(String sql) {
+        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getTimestamp(1);
+            }
+            return null;
+        } catch (SQLException e) {
+            throw new UncheckedSqlException(e);
+        }
+    }
+
+    private List<PeriodMetrics> getMessagesPerInterval(TimeUnit timeUnit) {
         String view = translateTimeUnitToMessagesPerIntervalViewName(timeUnit);
         try (Statement stat = _conn.createStatement();
              ResultSet rs = stat.executeQuery("select time_period, produced_count, consumed_count,"
@@ -387,129 +723,4 @@ public class DataProvider {
             throw new IllegalArgumentException("Time unit " + timeUnit.name() + " not supported");
         }
     }
-
-    /**
-     * Check if this is (or may be) a correctness test where the id header is present. Without the id header it is
-     * impossible to connect produced and consumed messages.
-     *
-     * @return true if id is present in database, false otherwise.
-     */
-    public boolean isCorrectnessTest() {
-        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0
-                        && findExists("select application_id from produced_messages where application_id is not null");
-    }
-
-    public List<ProducedMessage> getLostMessages() {
-        return findProducedMessages("select jms_id, application_id, payload_size, produced_time, delay_seconds"
-                        + " from lost_messages order by jms_id");
-    }
-
-    public List<ConsumedMessage> getAlienMessages() {
-        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
-                        + " from alien_messages order by jms_id");
-    }
-
-    public List<ConsumedMessage> getUndeadMessages() {
-        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
-                        + " from undead_messages order by jms_id");
-    }
-
-    public List<ConsumedMessage> getGhostMessages() {
-        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
-                        + " from ghost_messages order by jms_id");
-    }
-
-    public List<ConsumedMessage> getDuplicateMessages() {
-        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
-                        + " from consumed_messages c"
-                        + " where exists (select * from duplicate_messages d where d.application_id = c.application_id)"
-                        + " order by application_id, jms_id");
-    }
-
-    private List<ProducedMessage> findProducedMessages(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            List<ProducedMessage> list = new ArrayList<>();
-            while (rs.next()) {
-                list.add(new ProducedMessage(rs.getString("jms_id"), rs.getString("application_id"),
-                                (Integer) rs.getObject("payload_size"), rs.getTimestamp("produced_time"),
-                                rs.getInt("delay_seconds")));
-            }
-            return list;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
-    private List<ConsumedMessage> findConsumedMessages(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            List<ConsumedMessage> list = new ArrayList<>();
-            while (rs.next()) {
-                list.add(new ConsumedMessage(rs.getString("jms_id"), rs.getString("application_id"),
-                                rs.getInt("payload_size"), rs.getTimestamp("consumed_time")));
-            }
-            return list;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
-    private int findSimpleCount(String table) {
-        return findWithIntResult("select count(*) from " + table);
-    }
-
-    private Timestamp findStartTime() {
-        return findWithTimestampResult("select min(ts) from (" //
-                        + "select min(produced_time) ts from produced_messages" //
-                        + " union all " //
-                        + "select min(consumed_time) ts from consumed_messages)");
-    }
-
-    private Timestamp findEndTime() {
-        return findWithTimestampResult("select max(ts) from (" //
-                        + "select max(produced_time) ts from produced_messages" //
-                        + " union all " //
-                        + "select max(consumed_time) ts from consumed_messages)");
-    }
-
-    private boolean findExists(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            return rs.next();
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
-    private long findWithLongResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-            return 0;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
-    private int findWithIntResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-            return 0;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
-    private Timestamp findWithTimestampResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getTimestamp(1);
-            }
-            return null;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
-    }
-
 }

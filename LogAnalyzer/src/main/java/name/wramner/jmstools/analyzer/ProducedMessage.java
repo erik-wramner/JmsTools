@@ -18,12 +18,21 @@ package name.wramner.jmstools.analyzer;
 import java.sql.Timestamp;
 
 /**
- * Produced message.
+ * A produced message.
  */
 public class ProducedMessage extends Message {
     private final int _delaySeconds;
     private final Timestamp _publishedTimestamp;
 
+    /**
+     * Constructor.
+     *
+     * @param jmsId The unique JMS id for the message.
+     * @param applicationId The application id from the JmsTools header.
+     * @param payloadSize The payload size in bytes.
+     * @param publishedTimestamp The time when the message was produced.
+     * @param delaySecond The configured delay in seconds, normally 0.
+     */
     public ProducedMessage(String jmsId, String applicationId, Integer payloadSize, Timestamp publishedTimestamp,
                     int delaySeconds) {
         super(jmsId, applicationId, payloadSize);

@@ -18,7 +18,7 @@ package name.wramner.jmstools.analyzer;
 import java.sql.Timestamp;
 
 /**
- * Flight time metrics for a period (minute).
+ * Flight time metrics for a period, typically a minute.
  */
 public class FlightTimeMetrics {
     private final Timestamp _period;
@@ -28,6 +28,16 @@ public class FlightTimeMetrics {
     private final int _median;
     private final int _percentile95;
 
+    /**
+     * Constructor.
+     *
+     * @param period The start of the period.
+     * @param count The number of messages in the period.
+     * @param min The minimum flight time in milliseconds.
+     * @param max The maximum flight time in milliseconds.
+     * @param median The median (50th percentile) flight time in milliseconds.
+     * @param percentile95 The 95th percentile flight time in milliseconds.
+     */
     public FlightTimeMetrics(Timestamp period, int count, int min, int max, int median, int percentile95) {
         _period = period;
         _count = count;

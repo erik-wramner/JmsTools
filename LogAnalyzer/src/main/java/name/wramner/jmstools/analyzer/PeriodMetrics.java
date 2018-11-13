@@ -18,7 +18,7 @@ package name.wramner.jmstools.analyzer;
 import java.sql.Timestamp;
 
 /**
- * Metrics for a period.
+ * Metrics for a period, normally a minute or second.
  */
 public class PeriodMetrics {
     private final Timestamp periodStart;
@@ -31,6 +31,19 @@ public class PeriodMetrics {
     private final int _medianProducedSize;
     private final int _medianConsumedSize;
 
+    /**
+     * Constructor.
+     *
+     * @param periodStart The period start time.
+     * @param producedCount The number of produced messages in the period.
+     * @param consumedCount The number of consumed messages in the period.
+     * @param producedBytes The total number of bytes for messages produced in the period.
+     * @param consumedBytes The total number of bytes for messages consumed in the period.
+     * @param maxProducedSize The largest message size produced in the period.
+     * @param maxConsumedSize The largest message size consumed in the period.
+     * @param medianProducedSize The median (50th percentile) produced message size.
+     * @param medianConsumedSize The median (50th percentile) consumed message size.
+     */
     public PeriodMetrics(Timestamp periodStart, int producedCount, int consumedCount, long producedBytes,
                     long consumedBytes, int maxProducedSize, int maxConsumedSize, int medianProducedSize,
                     int medianConsumedSize) {

@@ -16,13 +16,20 @@
 package name.wramner.jmstools.analyzer;
 
 /**
- * Message that has been produced or consumed.
+ * A message that has been produced or consumed.
  */
 public class Message {
     private final String _jmsId;
     private final String _applicationId;
     private final Integer _payloadSize;
 
+    /**
+     * Constructor.
+     *
+     * @param jmsId The unique JMS id for the message.
+     * @param applicationId The application id from the JmsTools header.
+     * @param payloadSize The payload size in bytes.
+     */
     public Message(String jmsId, String applicationId, Integer payloadSize) {
         _jmsId = jmsId;
         _applicationId = applicationId;

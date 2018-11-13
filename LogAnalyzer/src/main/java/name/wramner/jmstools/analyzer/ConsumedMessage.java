@@ -18,11 +18,19 @@ package name.wramner.jmstools.analyzer;
 import java.sql.Timestamp;
 
 /**
- * Consumed message.
+ * A consumed message.
  */
 public class ConsumedMessage extends Message {
     private final Timestamp _consumedTimestamp;
 
+    /**
+     * Constructor.
+     *
+     * @param jmsId The unique JMS id for the message.
+     * @param applicationId The application id from the JmsTools header.
+     * @param payloadSize The payload size in bytes.
+     * @param consumedTimestamp The time when the message was consumed.
+     */
     public ConsumedMessage(String jmsId, String applicationId, Integer payloadSize, Timestamp consumedTimestamp) {
         super(jmsId, applicationId, payloadSize);
         _consumedTimestamp = consumedTimestamp;
