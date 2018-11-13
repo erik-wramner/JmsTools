@@ -42,8 +42,10 @@ caption {
             th:text="${dataProvider.delayedMessageCount}">10</span> (<span
             th:text="${#numbers.formatDecimal(dataProvider.delayedMessagePercentage, 1, 2)}">1.00</span>%) were delayed.
         These totals include committed and rolled back messages. Of the produced messages <span
-            th:text="${dataProvider.rolledBackProducedCount}">0</span> were rolled back. Of the consumed messages <span
-            th:text="${dataProvider.rolledBackConsumedCount}">0</span> were rolled back.
+            th:text="${dataProvider.rolledBackProducedCount}">0</span> were rolled back and <span
+            th:text="${dataProvider.inDoubtProducedCount}">0</span> are in doubt. Of the consumed messages <span
+            th:text="${dataProvider.rolledBackConsumedCount}">0</span> were rolled back and <span
+            th:text="${dataProvider.inDoubtConsumedCount}">0</span> in doubt.
     <h2>Correctness</h2>
     <p>
         This part focuses on correctness and relies on the JmsTools id option. The goal is to ensure that the messaging
@@ -57,7 +59,12 @@ caption {
         without the id property they are normal. An <b>undead</b> message has never been sent, but yet it is not alien.
         Most likely a log file from another test has been imported, but it is also possible that a message got through
         without being logged when a producer was killed. That may be correct, or it may be problematic. If there are
-        unexplained undead messages present, keep testing and find out why.
+        unexplained undead messages present, keep testing and find out why. In doubt messages are messages that may have
+        been committed or rolled back or that may be stuck in prepared state. With normal transactions this state is
+        used when the tool has tried to commit but failed. If the failure is due to a broker crash or network failure it
+        is not clear if the problem happened before or after the message was committed on the server. For two phase
+        transactions there are a wide range of errors that leave messages in doubt. In all cases in doubt transactions
+        require more analysis.
     <h3>Lost messages</h3>
     <div th:if="${dataProvider.lostMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.lostMessageCount}">5</span> lost messages.
