@@ -116,6 +116,54 @@ caption {
     </div>
     <div th:if="${dataProvider.duplicateMessageCount == 0}" th:remove="tag">There were no duplicate messages.</div>
 
+    <div th:if="${dataProvider.inDoubtProducedCount > 0}" th:remove="tag">
+        <h3>In doubt produced messages</h3>
+        There were <span th:text="${dataProvider.inDoubtProducedCount}">3</span> in doubt produced messages.
+        <table>
+            <thead>
+                <tr>
+                    <th>Published</th>
+                    <th>JMS ID</th>
+                    <th>Application ID</th>
+                    <th>Size</th>
+                    <th>Delay</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="msg : ${dataProvider.inDoubtProducedMessages}">
+                    <td th:text="${msg.publishedTimestamp}">2017-12-01 16:00</td>
+                    <td th:text="${msg.jmsId}">ID:SomethingUniqueHere</td>
+                    <td th:text="${msg.applicationId}">UUID</td>
+                    <td th:text="${msg.payloadSize}" align="right">810</td>
+                    <td th:text="${msg.delaySeconds}" align="right">0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${dataProvider.inDoubtConsumedCount > 0}" th:remove="tag">
+        <h3>In doubt consumed messages</h3>
+        There were <span th:text="${dataProvider.inDoubtConsumedCount}">3</span> in doubt consumed messages.
+        <table>
+            <thead>
+                <tr>
+                    <th>Consumed</th>
+                    <th>JMS ID</th>
+                    <th>Application ID</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="msg : ${dataProvider.inDoubtConsumedMessages}">
+                    <td th:text="${msg.consumedTimestamp}">2017-12-01 16:00</td>
+                    <td th:text="${msg.jmsId}">ID:SomethingUniqueHere</td>
+                    <td th:text="${msg.applicationId}">GUID</td>
+                    <td th:text="${msg.payloadSize}" align="right">810</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <h3>Ghost messages</h3>
     <div th:if="${dataProvider.ghostMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.ghostMessageCount}">5</span> ghost messages.

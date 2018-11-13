@@ -404,6 +404,16 @@ public class DataProvider {
     }
 
     /**
+     * Get list with all in doubt consumed messages.
+     *
+     * @return messages.
+     */
+    public List<ConsumedMessage> getInDoubtConsumedMessages() {
+        return findConsumedMessages("select jms_id, application_id, payload_size, consumed_time"
+                        + " from consumed_messages c where outcome = '?' order by consumed_time, jms_id");
+    }
+
+    /**
      * Get the total number of produced messages that are in doubt, meaning that they may have been committed or rolled
      * back or possibly stuck in pending state for a two phase commit (not known).
      *
@@ -411,6 +421,16 @@ public class DataProvider {
      */
     public int getInDoubtProducedCount() {
         return _inDoubtProducedCount;
+    }
+
+    /**
+     * Get a list with all in doubt produced messages.
+     *
+     * @return list with messages.
+     */
+    public List<ProducedMessage> getInDoubtProducedMessages() {
+        return findProducedMessages("select jms_id, application_id, payload_size, produced_time, delay_seconds"
+                        + " from produced_messages where outcome = '?' order by produced_time, jms_id");
     }
 
     /**
