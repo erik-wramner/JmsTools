@@ -87,6 +87,7 @@ public class ConstantThroughputRegulator implements Runnable {
     public void run() {
         _logger.debug("Constant throughput regulator started, goal is {} messages per minute", _messagesPerMinute);
         try {
+            final int threadsTimesMillisPerMinute = _threads * ONE_MINUTE_IN_MS;
             int prevCount = 0;
             int tpm = 0;
             _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
@@ -98,18 +99,35 @@ public class ConstantThroughputRegulator implements Runnable {
 
                 if (tpm != _messagesPerMinute) {
                     int currentSleepTime = _sleepTimeMillis.get();
-                    int averageProcessingTime = calculateAverageProcessingTimeMillis(tpm, ONE_MINUTE_IN_MS, _threads,
+                    double averageProcessingTime = calculateAverageProcessingTimeMillis(tpm, ONE_MINUTE_IN_MS, _threads,
                                     _batchSize, currentSleepTime);
-                    int idealSleepTime = Math
-                                    .max((_threads * ONE_MINUTE_IN_MS - (_messagesPerMinute * averageProcessingTime))
+                    double idealSleepTime = Math
+                                    .max((threadsTimesMillisPerMinute - (_messagesPerMinute * averageProcessingTime))
                                                     / _messagesPerMinute, 0)
                                     * _batchSize;
                     int newSleepTime = computeSleepTimeWithDamping(currentSleepTime, idealSleepTime, iterations);
+
+                    if (_logger.isDebugEnabled()) {
+                        double newTpm = threadsTimesMillisPerMinute
+                                        / ((averageProcessingTime * _batchSize) + newSleepTime);
+                        double newHigherTpm = threadsTimesMillisPerMinute
+                                        / ((averageProcessingTime * _batchSize) + Math.max(newSleepTime - 1, 0));
+                        double newLowerTpm = threadsTimesMillisPerMinute
+                                        / ((averageProcessingTime * _batchSize) + (newSleepTime + 1));
+                        _logger.debug("Actual tpm {}, new expected tpm {}, alt {} or {}", tpm, newTpm, newLowerTpm,
+                                        newHigherTpm);
+                    }
+
                     if (newSleepTime != currentSleepTime) {
                         _sleepTimeMillis.set(newSleepTime);
-                        _logger.info("Adjusted sleep time from {} to {} ms (ideal {} ms, target {} tpm, actual {} tpm, average processing time {} ms)",
-                                        currentSleepTime, newSleepTime, idealSleepTime, _messagesPerMinute, tpm,
-                                        averageProcessingTime);
+                        if (_logger.isDebugEnabled()) {
+                            _logger.debug("Adjusted sleep time from {} to {} ms"
+                                            + " (ideal {} ms, target {} tpm, actual {} tpm, average processing time {} ms)",
+                                            currentSleepTime, newSleepTime, idealSleepTime, _messagesPerMinute, tpm,
+                                            averageProcessingTime);
+                        } else {
+                            _logger.info("Adjusted sleep time from {} to {} ms", currentSleepTime, newSleepTime);
+                        }
                     }
                 }
                 _stopController.waitForTimeoutOrDone(ONE_MINUTE_IN_MS);
@@ -128,15 +146,18 @@ public class ConstantThroughputRegulator implements Runnable {
      * @param iterations The number of periods observed so far.
      * @return sleep time for next period.
      */
-    private int computeSleepTimeWithDamping(int currentSleepTime, int idealSleepTime, int iterations) {
-        if (idealSleepTime != currentSleepTime && _maxDampingFactor > 1 && iterations > _dampingIterationFactor) {
+    private int computeSleepTimeWithDamping(double currentSleepTime, double idealSleepTime, int iterations) {
+        if (Math.abs(idealSleepTime - currentSleepTime) > 0.5 && _maxDampingFactor > 1
+                        && iterations > _dampingIterationFactor) {
             int dampingFactor = Math.min(1 + iterations / _dampingIterationFactor, _maxDampingFactor);
-            int delta = idealSleepTime - currentSleepTime;
-            int adjustedDelta = Math.max(Math.abs(delta) / dampingFactor, 1);
-            _logger.debug("Damping factor {} delta {} adjusted {}", dampingFactor, delta, adjustedDelta);
-            return delta < 0 ? currentSleepTime - adjustedDelta : currentSleepTime + adjustedDelta;
+            double delta = (idealSleepTime - currentSleepTime) / dampingFactor;
+            if (_logger.isDebugEnabled()) {
+                _logger.debug("Damping factor {} delta {} current sleep {} ideal {} new {}", dampingFactor, delta,
+                                currentSleepTime, idealSleepTime, Math.rint(currentSleepTime + delta));
+            }
+            return (int) Math.rint(currentSleepTime + delta);
         } else {
-            return idealSleepTime;
+            return (int) Math.rint(idealSleepTime);
         }
     }
 
@@ -150,7 +171,7 @@ public class ConstantThroughputRegulator implements Runnable {
      * @param sleepTimePerBatchMillis The sleep time per batch/commit.
      * @return average processing time for the completed requests.
      */
-    private int calculateAverageProcessingTimeMillis(int numberOfRequests, int periodTimeMillis, int threads,
+    private double calculateAverageProcessingTimeMillis(int numberOfRequests, int periodTimeMillis, int threads,
                     int batchSize, int sleepTimePerBatchMillis) {
         if (numberOfRequests == 0) {
             return periodTimeMillis;
@@ -158,7 +179,6 @@ public class ConstantThroughputRegulator implements Runnable {
         double requestsPerThread = (double) numberOfRequests / threads;
         double batchesPerThread = requestsPerThread / batchSize;
         double totalProcessingTimePerThread = periodTimeMillis - (batchesPerThread * sleepTimePerBatchMillis);
-        double averageProcessingTime = totalProcessingTimePerThread / requestsPerThread;
-        return (int) Math.ceil(averageProcessingTime);
+        return totalProcessingTimePerThread / requestsPerThread;
     }
 }
