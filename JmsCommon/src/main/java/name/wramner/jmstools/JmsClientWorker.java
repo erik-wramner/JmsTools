@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Random;
 
 import javax.jms.JMSException;
+import javax.jms.TransactionRolledBackException;
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
@@ -141,9 +142,11 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
             logPendingMessagesRolledBack();
         } catch (RollbackException | HeuristicRollbackException e) {
             _logger.error("Failed to commit!", e);
+            // Should already be logged, but safe to call again (nothing happens)
             logPendingMessagesRolledBack();
         } catch (HeuristicMixedException e) {
             _logger.error("Failed to commit, but part of the transaction MAY have completed!", e);
+            // Should already be logged, but safe to call again (nothing happens)
             logPendingMessagesInDoubt();
         }
         return false;
@@ -188,7 +191,16 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
             resourceManager.rollback();
             logPendingMessagesRolledBack();
         } else {
-            resourceManager.commit();
+            try {
+                resourceManager.commit();
+            } catch (TransactionRolledBackException | RollbackException | HeuristicRollbackException e) {
+                logPendingMessagesRolledBack();
+                throw e;
+            } catch (JMSException | HeuristicMixedException e) {
+                // Here the messages may have been committed, race condition
+                logPendingMessagesInDoubt();
+                throw e;
+            }
             _messageCounter.incrementCount(messageCount);
             logPendingMessagesCommitted();
         }
@@ -274,7 +286,7 @@ public abstract class JmsClientWorker<T extends JmsClientConfiguration> implemen
                 sb.append(nowString);
                 for (String field : fields) {
                     sb.append('\t');
-                    if(field != null) {
+                    if (field != null) {
                         sb.append(field);
                     }
                 }
