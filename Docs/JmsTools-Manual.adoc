@@ -1,6 +1,6 @@
 [[jmstools_manual]]
 = JmsTools Manual
-:appversion: 1.9
+:appversion: 1.10-SNAPSHOT
 :toc: left
 :toclevels: 4
 :tabsize: 4
