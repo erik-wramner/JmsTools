@@ -256,6 +256,17 @@ public class DataProvider {
     }
 
     /**
+     * Get consuming test duration in seconds for rounded up to the closest second like ceil.
+     *
+     * @return duration in seconds.
+     */
+    public int getConsumedDurationSeconds() {
+        return getFirstConsumedTime() != null && getLastConsumedTime() != null
+                        ? (int) ((getLastConsumedTime().getTime() - getFirstConsumedTime().getTime() + 999L) / 1000L)
+                        : 0;
+    }
+
+    /**
      * Get the total number of consumed messages including rolled back and in-doubt messages.
      *
      * @return count.
@@ -523,6 +534,17 @@ public class DataProvider {
     }
 
     /**
+     * Get producing test duration in seconds for rounded up to the closest second like ceil.
+     *
+     * @return duration in seconds.
+     */
+    public int getProducedDurationSeconds() {
+        return getFirstProducedTime() != null && getLastProducedTime() != null
+                        ? (int) ((getLastProducedTime().getTime() - getFirstProducedTime().getTime() + 999L) / 1000L)
+                        : 0;
+    }
+
+    /**
      * Get the total number of produced messages including rolled back and in-doubt messages.
      *
      * @return count.
@@ -689,20 +711,6 @@ public class DataProvider {
         return findWithIntResult("select count(*) from " + table);
     }
 
-    private int findWithIntResult(String sql) {
-        Number n = findWithCachedScalarResult(sql, Number.class);
-        return n != null ? n.intValue() : 0;
-    }
-
-    private long findWithLongResult(String sql) {
-        Number n = findWithCachedScalarResult(sql, Number.class);
-        return n != null ? n.longValue() : 0L;
-    }
-
-    private Timestamp findWithTimestampResult(String sql) {
-        return findWithCachedScalarResult(sql, Timestamp.class);
-    }
-
     private <T> T findWithCachedScalarResult(String sql, Class<T> cls) {
         Object cachedValue = _cache.get(sql);
         if (cachedValue == null) {
@@ -716,6 +724,20 @@ public class DataProvider {
             }
         }
         return cachedValue != null ? cls.cast(cachedValue) : null;
+    }
+
+    private int findWithIntResult(String sql) {
+        Number n = findWithCachedScalarResult(sql, Number.class);
+        return n != null ? n.intValue() : 0;
+    }
+
+    private long findWithLongResult(String sql) {
+        Number n = findWithCachedScalarResult(sql, Number.class);
+        return n != null ? n.longValue() : 0L;
+    }
+
+    private Timestamp findWithTimestampResult(String sql) {
+        return findWithCachedScalarResult(sql, Timestamp.class);
     }
 
     private List<PeriodMetrics> getMessagesPerInterval(TimeUnit timeUnit) {
