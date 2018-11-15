@@ -338,6 +338,24 @@ public class DataProvider {
     }
 
     /**
+     * Get the time for the first consumed message.
+     *
+     * @return time.
+     */
+    public Timestamp getFirstConsumedTime() {
+        return findWithTimestampResult("select min(consumed_time) ts from consumed_messages");
+    }
+
+    /**
+     * Get the time for the first produced message.
+     *
+     * @return time.
+     */
+    public Timestamp getFirstProducedTime() {
+        return findWithTimestampResult("select min(produced_time) ts from produced_messages");
+    }
+
+    /**
      * Get list with flight time metrics per minute.
      *
      * @return list with flight time metrics.
@@ -431,6 +449,24 @@ public class DataProvider {
     public List<ProducedMessage> getInDoubtProducedMessages() {
         return findProducedMessages("select jms_id, application_id, payload_size, produced_time, delay_seconds"
                         + " from produced_messages where outcome = '?' order by produced_time, jms_id");
+    }
+
+    /**
+     * Get the time for the last consumed message.
+     *
+     * @return time.
+     */
+    public Timestamp getLastConsumedTime() {
+        return findWithTimestampResult("select max(consumed_time) ts from consumed_messages");
+    }
+
+    /**
+     * Get the time for the last produced message.
+     *
+     * @return time.
+     */
+    public Timestamp getLastProducedTime() {
+        return findWithTimestampResult("select max(produced_time) ts from produced_messages");
     }
 
     /**
