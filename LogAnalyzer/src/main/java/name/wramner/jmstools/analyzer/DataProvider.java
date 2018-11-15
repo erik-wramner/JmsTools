@@ -26,7 +26,9 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.collections.api.list.primitive.MutableIntList;
@@ -44,21 +46,8 @@ import org.jfree.data.time.TimeSeriesCollection;
  */
 public class DataProvider {
     private final Connection _conn;
-    private final Timestamp _startTime;
-    private final Timestamp _endTime;
-    private final int _consumedMessageCount;
-    private final int _producedMessageCount;
-    private final int _lostMessageCount;
-    private final int _duplicateMessageCount;
-    private final int _ghostMessageCount;
-    private final int _alienMessageCount;
-    private final int _undeadMessageCount;
-    private final int _delayedMessageCount;
-    private final int _rolledBackProducedCount;
-    private final int _rolledBackConsumedCount;
-    private final int _inDoubtProducedCount;
-    private final int _inDoubtConsumedCount;
     private List<FlightTimeMetrics> _flightTimeMetrics;
+    private final Map<String, Object> _cache = new HashMap<>();
 
     /**
      * Constructor.
@@ -67,20 +56,6 @@ public class DataProvider {
      */
     public DataProvider(Connection conn) {
         _conn = conn;
-        _startTime = findStartTime();
-        _endTime = findEndTime();
-        _producedMessageCount = findSimpleCount("produced_messages");
-        _consumedMessageCount = findSimpleCount("consumed_messages");
-        _lostMessageCount = findSimpleCount("lost_messages");
-        _duplicateMessageCount = findSimpleCount("duplicate_messages");
-        _ghostMessageCount = findSimpleCount("ghost_messages");
-        _alienMessageCount = findSimpleCount("alien_messages");
-        _undeadMessageCount = findSimpleCount("undead_messages");
-        _delayedMessageCount = findWithIntResult("select count(*) from produced_messages where delay_seconds > 0");
-        _rolledBackProducedCount = findWithIntResult("select count(*) from produced_messages where outcome = 'R'");
-        _rolledBackConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = 'R'");
-        _inDoubtProducedCount = findWithIntResult("select count(*) from produced_messages where outcome = '?'");
-        _inDoubtConsumedCount = findWithIntResult("select count(*) from consumed_messages where outcome = '?'");
     }
 
     /**
@@ -90,7 +65,7 @@ public class DataProvider {
      * @return total alien message count.
      */
     public int getAlienMessageCount() {
-        return _alienMessageCount;
+        return findSimpleCount("alien_messages");
     }
 
     /**
@@ -286,7 +261,7 @@ public class DataProvider {
      * @return count.
      */
     public int getConsumedMessageCount() {
-        return _consumedMessageCount;
+        return findSimpleCount("consumed_messages");
     }
 
     /**
@@ -295,7 +270,7 @@ public class DataProvider {
      * @return count.
      */
     public int getDelayedMessageCount() {
-        return _delayedMessageCount;
+        return findWithIntResult("select count(*) from produced_messages where delay_seconds > 0");
     }
 
     /**
@@ -313,7 +288,7 @@ public class DataProvider {
      * @return count.
      */
     public int getDuplicateMessageCount() {
-        return _duplicateMessageCount;
+        return findSimpleCount("duplicate_messages");
     }
 
     /**
@@ -334,7 +309,10 @@ public class DataProvider {
      * @return end time.
      */
     public Timestamp getEndTime() {
-        return _endTime;
+        return findWithTimestampResult("select max(ts) from (" //
+                        + "select max(produced_time) ts from produced_messages" //
+                        + " union all " //
+                        + "select max(consumed_time) ts from consumed_messages)");
     }
 
     /**
@@ -398,7 +376,7 @@ public class DataProvider {
      * @return count.
      */
     public int getGhostMessageCount() {
-        return _ghostMessageCount;
+        return findSimpleCount("ghost_messages");
     }
 
     /**
@@ -418,7 +396,7 @@ public class DataProvider {
      * @return consumed messages in doubt.
      */
     public int getInDoubtConsumedCount() {
-        return _inDoubtConsumedCount;
+        return findWithIntResult("select count(*) from consumed_messages where outcome = '?'");
     }
 
     /**
@@ -438,7 +416,7 @@ public class DataProvider {
      * @return produced messages in doubt.
      */
     public int getInDoubtProducedCount() {
-        return _inDoubtProducedCount;
+        return findWithIntResult("select count(*) from produced_messages where outcome = '?'");
     }
 
     /**
@@ -475,7 +453,7 @@ public class DataProvider {
      * @return count.
      */
     public int getLostMessageCount() {
-        return _lostMessageCount;
+        return findSimpleCount("lost_messages");
     }
 
     /**
@@ -550,7 +528,7 @@ public class DataProvider {
      * @return count.
      */
     public int getProducedMessageCount() {
-        return _producedMessageCount;
+        return findSimpleCount("produced_messages");
     }
 
     /**
@@ -559,7 +537,7 @@ public class DataProvider {
      * @return count.
      */
     public int getRolledBackConsumedCount() {
-        return _rolledBackConsumedCount;
+        return findWithIntResult("select count(*) from consumed_messages where outcome = 'R'");
     }
 
     /**
@@ -568,7 +546,7 @@ public class DataProvider {
      * @return count.
      */
     public int getRolledBackProducedCount() {
-        return _rolledBackProducedCount;
+        return findWithIntResult("select count(*) from produced_messages where outcome = 'R'");
     }
 
     /**
@@ -577,7 +555,10 @@ public class DataProvider {
      * @return start time.
      */
     public Timestamp getStartTime() {
-        return _startTime;
+        return findWithTimestampResult("select min(ts) from (" //
+                        + "select min(produced_time) ts from produced_messages" //
+                        + " union all " //
+                        + "select min(consumed_time) ts from consumed_messages)");
     }
 
     /**
@@ -617,7 +598,7 @@ public class DataProvider {
      * @return count.
      */
     public int getUndeadMessageCount() {
-        return _undeadMessageCount;
+        return findSimpleCount("undead_messages");
     }
 
     /**
@@ -640,8 +621,8 @@ public class DataProvider {
      * @return true if id is present in database, false otherwise.
      */
     public boolean isCorrectnessTest() {
-        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0
-                        && findExists("select application_id from produced_messages where application_id is not null");
+        return getProducedMessageCount() > 0 && getConsumedMessageCount() > 0 && findExistsWithCache(
+                        "select application_id from produced_messages where application_id is not null");
     }
 
     /**
@@ -677,19 +658,17 @@ public class DataProvider {
         }
     }
 
-    private Timestamp findEndTime() {
-        return findWithTimestampResult("select max(ts) from (" //
-                        + "select max(produced_time) ts from produced_messages" //
-                        + " union all " //
-                        + "select max(consumed_time) ts from consumed_messages)");
-    }
-
-    private boolean findExists(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            return rs.next();
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
+    private boolean findExistsWithCache(String sql) {
+        Boolean b = (Boolean) _cache.get(sql);
+        if (b == null) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                b = Boolean.valueOf(rs.next());
+                _cache.put(sql, b);
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
+            }
         }
+        return b.booleanValue();
     }
 
     private List<ProducedMessage> findProducedMessages(String sql) {
@@ -710,44 +689,33 @@ public class DataProvider {
         return findWithIntResult("select count(*) from " + table);
     }
 
-    private Timestamp findStartTime() {
-        return findWithTimestampResult("select min(ts) from (" //
-                        + "select min(produced_time) ts from produced_messages" //
-                        + " union all " //
-                        + "select min(consumed_time) ts from consumed_messages)");
-    }
-
     private int findWithIntResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-            return 0;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
+        Number n = findWithCachedScalarResult(sql, Number.class);
+        return n != null ? n.intValue() : 0;
     }
 
     private long findWithLongResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-            return 0;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
-        }
+        Number n = findWithCachedScalarResult(sql, Number.class);
+        return n != null ? n.longValue() : 0L;
     }
 
     private Timestamp findWithTimestampResult(String sql) {
-        try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getTimestamp(1);
+        return findWithCachedScalarResult(sql, Timestamp.class);
+    }
+
+    private <T> T findWithCachedScalarResult(String sql, Class<T> cls) {
+        Object cachedValue = _cache.get(sql);
+        if (cachedValue == null) {
+            try (Statement stat = _conn.createStatement(); ResultSet rs = stat.executeQuery(sql)) {
+                if (rs.next()) {
+                    cachedValue = rs.getObject(1);
+                }
+                _cache.put(sql, cachedValue);
+            } catch (SQLException e) {
+                throw new UncheckedSqlException(e);
             }
-            return null;
-        } catch (SQLException e) {
-            throw new UncheckedSqlException(e);
         }
+        return cachedValue != null ? cls.cast(cachedValue) : null;
     }
 
     private List<PeriodMetrics> getMessagesPerInterval(TimeUnit timeUnit) {
