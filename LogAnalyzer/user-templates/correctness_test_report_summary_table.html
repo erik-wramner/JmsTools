@@ -42,155 +42,163 @@ caption {
             th:text="${dataProvider.delayedMessageCount}">10</span> (<span
             th:text="${#numbers.formatDecimal(dataProvider.delayedMessagePercentage, 1, 2)}">1.00</span>%) were delayed.
         These totals include committed and rolled back messages. Of the produced messages <span
-            th:text="${dataProvider.rolledBackProducedCount}">0</span> were rolled back. Of the consumed messages <span
-            th:text="${dataProvider.rolledBackConsumedCount}">0</span> were rolled back.
-    </p>
-            <table>
-                <tbody>
-                    <tr>
-                        <th width="220">Test started</th>
-                        <td th:text="${#dates.format(dataProvider.startTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 10:00:00</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Test finished</th>
-                        <td th:text="${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 11:00:00</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Test duration</th>
-                        <td th:text="${dataProvider.TestDurationMinutes}" align="center" width="150">60</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Produced with roll-back</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.producedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Consumed with roll-back</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.consumedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                    <th width="220">Rolled-back produced</th>
-                    <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Rolled-back consumed</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Produced</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Consumed</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Difference</th>
-                        <td th:text="${#numbers.formatDecimal((dataProvider.committedProducedCount-dataProvider.committedConsumedCount), 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Lost messages</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.lostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Duplicate messages</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.duplicateMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Ghost</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.ghostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Alien messages</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.alienMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Undead messages</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.undeadMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Produced bytes</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Consumed bytes</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Max Produced Message Size</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.MaxProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Average Produced Message Size</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.AverageProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">5000</td>
-                    </tr>
-                </tbody>
-                <tbody>
-                    <tr>
-                        <th width="220">Min Produced Message Size</th>
-                        <td th:text="${#numbers.formatDecimal(dataProvider.MinProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">2000</td>
-                    </tr>
-                </tbody>
-            </table>
+            th:text="${dataProvider.rolledBackProducedCount}">0</span> were rolled back and <span
+            th:text="${dataProvider.inDoubtProducedCount}">0</span> are in doubt. Of the consumed messages <span
+            th:text="${dataProvider.rolledBackConsumedCount}">0</span> were rolled back and <span
+            th:text="${dataProvider.inDoubtConsumedCount}">0</span> in doubt.
+    <table>
+        <tbody>
+            <tr>
+                <th width="220">Test started</th>
+                <td th:text="${#dates.format(dataProvider.startTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 10:00:00</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Test finished</th>
+                <td th:text="${#dates.format(dataProvider.endTime, 'yyyy-MM-dd HH:mm:ss')}" align="center" width="150">2017-01-01 11:00:00</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Test duration</th>
+                <td th:text="${dataProvider.TestDurationMinutes}" align="center" width="150">60</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Produced with roll-back</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.producedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Consumed with roll-back</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.consumedMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+            <th width="220">Rolled-back produced</th>
+            <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+        </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Rolled-back consumed</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.rolledBackConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+            <th width="220">In doubt produced</th>
+            <td th:text="${#numbers.formatDecimal(dataProvider.inDoubtProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+        </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">In doubt consumed</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.inDoubtConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Produced</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Consumed</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Difference</th>
+                <td th:text="${#numbers.formatDecimal((dataProvider.committedProducedCount-dataProvider.committedConsumedCount), 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Lost messages</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.lostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Duplicate messages</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.duplicateMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Ghost</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.ghostMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Alien messages</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.alienMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Undead messages</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.undeadMessageCount, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">0</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Produced bytes</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Consumed bytes</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedBytes, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">100,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Max Produced Message Size</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.MaxProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">8,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Average Produced Message Size</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.AverageProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">5,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Min Produced Message Size</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.MinProducedMessageSize, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">2,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Produced average TPS</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedProducedCount/dataProvider.ProducedDurationSeconds, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">2,000</td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th width="220">Consumed average TPS</th>
+                <td th:text="${#numbers.formatDecimal(dataProvider.committedConsumedCount/dataProvider.ConsumedDurationSeconds, 0, 'COMMA', 0, 'POINT')}" align="center" width="150">3,000</td>
+            </tr>
+        </tbody>
+    </table>
     <h2>Correctness</h2>
-    <p>
-        This part focuses on correctness and relies on the JmsTools id option. The goal is to ensure that the messaging
-        platform delivers every message exactly once.
-        <br>
-        A <b>lost</b> message is, well, gone. Sent but not received. It may be truly lost, it may have been moved to a
-        dead letter queue or the id property may have been lost in transit. Without the id property the message becomes
-        an alien.
-        <br>
-        A <b>duplicate</b> message has been delivered and (more importantly) committed by the consumer at least twice.
-        <br>
-        A <b>ghost</b> message has been sent but rolled back; if ghost messages are found something is seriously wrong.
-        Yet it happens.
-        <br>
-        An <b>alien</b> message is a message without the properties set by the producer. In a correctness test where the
-        consumer is used with the producer and with the id property set, there should be none. For a performance test
-        where messages are generated without the id property they are normal.
-        <br>
-        An <b>undead</b> message has never been sent, but yet it is not alien. Most likely a log file from another test
-        has been imported, but it is also possible that a message got through without being logged when a producer was
-        killed. That may be correct, or it may be problematic. If there are unexplained undead messages present, keep
-        testing and find out why.
-    </p>
+    This part focuses on correctness and relies on the JmsTools id option. The goal is to ensure that the messaging
+    platform delivers every message exactly once.
     <h3>Lost messages</h3>
+    A lost message is, well, gone. Sent but not received. It may be truly lost, it may have been moved to a dead letter
+    queue or the id property may have been lost in transit. Without the id property the message becomes an alien
+    (below).
     <div th:if="${dataProvider.lostMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.lostMessageCount}">5</span> lost messages.
         <table>
@@ -218,6 +226,7 @@ caption {
     <div th:if="${dataProvider.lostMessageCount == 0}" th:remove="tag">There were no lost messages.</div>
 
     <h3>Duplicate messages</h3>
+    A duplicate message has been delivered and (more importantly) committed by the consumer at least twice.
     <div th:if="${dataProvider.duplicateMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.duplicateMessageCount}">5</span> duplicate messages.
         <table>
@@ -241,7 +250,70 @@ caption {
     </div>
     <div th:if="${dataProvider.duplicateMessageCount == 0}" th:remove="tag">There were no duplicate messages.</div>
 
+    <h3>In doubt messages</h3>
+    In doubt messages are messages that may have been committed or rolled back or that may be stuck in prepared state.
+    With normal transactions this state is used when the tool has tried to commit but failed. If the failure is due to a
+    broker crash or network failure it is not clear if the problem happened before or after the message was committed on
+    the server. For two phase transactions there are a wide range of errors that leave messages in doubt. In all cases
+    in doubt transactions require more analysis.
+
+    <div th:if="${dataProvider.inDoubtProducedCount > 0 || dataProvider.inDoubtConsumedCount > 0}" th:remove="tag">
+        <div th:if="${dataProvider.inDoubtProducedCount > 0}" th:remove="tag">
+            <h4>Produced messages</h4>
+            There were <span th:text="${dataProvider.inDoubtProducedCount}">3</span> in doubt produced messages.
+            <table>
+                <thead>
+                    <tr>
+                        <th>Published</th>
+                        <th>JMS ID</th>
+                        <th>Application ID</th>
+                        <th>Size</th>
+                        <th>Delay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="msg : ${dataProvider.inDoubtProducedMessages}">
+                        <td th:text="${msg.publishedTimestamp}">2017-12-01 16:00</td>
+                        <td th:text="${msg.jmsId}">ID:SomethingUniqueHere</td>
+                        <td th:text="${msg.applicationId}">UUID</td>
+                        <td th:text="${msg.payloadSize}" align="right">810</td>
+                        <td th:text="${msg.delaySeconds}" align="right">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div th:if="${dataProvider.inDoubtConsumedCount > 0}" th:remove="tag">
+            <h4>Consumed messages</h4>
+            There were <span th:text="${dataProvider.inDoubtConsumedCount}">3</span> in doubt consumed messages.
+            <table>
+                <thead>
+                    <tr>
+                        <th>Consumed</th>
+                        <th>JMS ID</th>
+                        <th>Application ID</th>
+                        <th>Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="msg : ${dataProvider.inDoubtConsumedMessages}">
+                        <td th:text="${msg.consumedTimestamp}">2017-12-01 16:00</td>
+                        <td th:text="${msg.jmsId}">ID:SomethingUniqueHere</td>
+                        <td th:text="${msg.applicationId}">GUID</td>
+                        <td th:text="${msg.payloadSize}" align="right">810</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div th:if="${dataProvider.inDoubtProducedCount == 0 && dataProvider.inDoubtConsumedCount == 0}" th:remove="tag">
+        There were no in doubt messages.</div>
+
     <h3>Ghost messages</h3>
+    A ghost message has been sent, rolled back, but was delivered anyway. For explicit rollbacks (using the rollback
+    option) that is very serious as it means that transactions are broken. There may be rollbacks caused by lost
+    connections or other technical issues where a message has been committed but where the tool assumed it had been
+    rolled back. Normally those messages should be listed as in doubt, but they may end up here.
+
     <div th:if="${dataProvider.ghostMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.ghostMessageCount}">5</span> ghost messages.
         <table>
@@ -266,6 +338,9 @@ caption {
     <div th:if="${dataProvider.ghostMessageCount == 0}" th:remove="tag">There were no ghost messages.</div>
 
     <h3>Alien messages</h3>
+    An alien message is a message without the properties set by the producer. In a correctness test where the consumer
+    is used with the producer and with the id property set, there should be none. For a performance test where messages
+    are generated without the id property they are normal.
     <div th:if="${dataProvider.alienMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.alienMessageCount}">5</span> alien messages.
         <table>
@@ -288,6 +363,10 @@ caption {
     <div th:if="${dataProvider.alienMessageCount == 0}" th:remove="tag">There were no alien messages.</div>
 
     <h3>Undead messages</h3>
+    An undead message has never been sent, but yet it is not alien. Most likely a log file from another test has been
+    imported, but it is also possible that a message got through without being logged when a producer was killed. That
+    may be correct, or it may be problematic. If there are unexplained undead messages present, keep testing and find
+    out why.
     <div th:if="${dataProvider.undeadMessageCount > 0}" th:remove="tag">
         There were <span th:text="${dataProvider.undeadMessageCount}">5</span> undead messages.
         <table>
