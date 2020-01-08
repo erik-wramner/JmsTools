@@ -8,7 +8,7 @@
     <version>1.11-SNAPSHOT</version>
   </parent>
   <groupId>name.wramner.jmstools</groupId>
-  <artifactId>WmqJmsConsumer</artifactId>
+  <artifactId>ArtemisJmsConsumer</artifactId>
   <version>1.11-SNAPSHOT</version>
   <licenses>
     <license>
@@ -24,7 +24,7 @@
   <dependencies>
     <dependency>
       <groupId>name.wramner.jmstools</groupId>
-      <artifactId>WmqJmsCommon</artifactId>
+      <artifactId>ArtemisJmsCommon</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -39,7 +39,7 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <description>JMS IBM (WebSphere) MQ message consumer for performance tests.</description>
+  <description>JMS Artemis message consumer for performance tests.</description>
   <build>
     <plugins>
       <plugin>
@@ -55,7 +55,7 @@
             </goals>
             <configuration>
               <minimizeJar>false</minimizeJar>
-              <outputFile>../shaded-jars/WmqJmsConsumer.jar</outputFile>
+              <outputFile>../shaded-jars/ArtemisJmsConsumer.jar</outputFile>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
@@ -70,7 +70,7 @@
                 <transformer
                   implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
-                    <Main-Class>name.wramner.jmstools.consumer.WmqJmsConsumer</Main-Class>
+                    <Main-Class>name.wramner.jmstools.consumer.ArtemisJmsConsumer</Main-Class>
                     <Specification-Title>${project.artifactId}</Specification-Title>
                     <Specification-Version>${project.version}</Specification-Version>
                     <Implementation-Title>${project.artifactId}</Implementation-Title>
