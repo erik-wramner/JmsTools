@@ -173,6 +173,12 @@ public class DequeueWorker<T extends JmsConsumerConfiguration> extends JmsClient
             Properties props = new Properties();
             for (Enumeration<?> propertyNames = msg.getPropertyNames(); propertyNames.hasMoreElements();) {
                 String name = propertyNames.nextElement().toString();
+                try {
+                    props.setProperty(name, msg.getStringProperty(name));
+                } catch (NullPointerException e) {
+                   _logger.error("Header \"" + name + "\" has a null value on: " + msg.getJMSMessageID() + " Header is not stored");
+                   continue;
+                }
                 props.setProperty(name, msg.getStringProperty(name));
             }
             props.store(fos, "JMS properties for " + msg.getJMSMessageID());
