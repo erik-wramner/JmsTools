@@ -157,7 +157,7 @@ public abstract class JmsProducerConfiguration extends JmsClientConfiguration {
         for (String headerKeyValuePair : _headers) {
             int pos = headerKeyValuePair.indexOf('=');
             if (pos != -1) {
-                int endIndexForKey = pos - 1;
+                int endIndexForKey = pos;
                 int startIndexForValue = pos + 1;
                 headerMap.put(headerKeyValuePair.substring(0, endIndexForKey),
                                 startIndexForValue < headerKeyValuePair.length()
