@@ -292,7 +292,7 @@ public class LogAnalyzer {
         Charset charset = Charset.forName("Cp1252");
         SqlFile sqlFile = new SqlFile(
                         new InputStreamReader(LogAnalyzer.class.getResourceAsStream("/create_schema.sql"), charset),
-                        "create schema", null, null, false, null);
+                        "create schema", null, null, false, (File) null);
         sqlFile.setConnection(conn);
         sqlFile.setAutoClose(true);
         sqlFile.execute();
